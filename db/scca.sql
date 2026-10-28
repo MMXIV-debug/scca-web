@@ -244,3 +244,10 @@ GRANT USAGE ON SCHEMA public TO app_api;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO app_api;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO app_api;
 REVOKE UPDATE, DELETE, TRUNCATE ON lectura_original, auditoria_evento FROM app_api;
+
+
+
+-- Cambios para la base de datos para cuentas Deshabilitadas o inactivas
+ALTER TABLE usuario DROP CONSTRAINT IF EXISTS usuario_estado_check;
+ALTER TABLE usuario ADD CONSTRAINT usuario_estado_check 
+  CHECK (estado IN ('pendiente', 'aprobado', 'rechazado', 'inactivo'));

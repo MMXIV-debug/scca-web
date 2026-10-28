@@ -31,10 +31,9 @@
       <nav class="nav flex-column">
         <a class="sidebar-link active" href="#"><i class="bi bi-grid-1x2 me-2"></i>Resumen</a>
         <a class="sidebar-link" href="#seccion-usuarios"><i class="bi bi-people me-2"></i>Usuarios y roles</a>
+        <a class="sidebar-link" href="#seccion-inactivos"><i class="bi bi-person-x me-2"></i>Inactivos</a>
         <a class="sidebar-link text-muted" href="#"><i class="bi bi-geo-alt me-2"></i>Sitios y fuentes</a>
-        <a class="sidebar-link text-muted" href="#"><i class="bi bi-shield-check me-2"></i>Políticas de monitoreo</a>
-        <a class="sidebar-link text-muted" href="#"><i class="bi bi-cpu me-2"></i>Simulaciones</a>
-        <a class="sidebar-link text-muted" href="#"><i class="bi bi-bar-chart me-2"></i>Reportes</a>
+        <a class="sidebar-link text-muted" href="#"><i class="bi bi-shield-check me-2"></i>Políticas</a>
       </nav>
       
       <div class="mt-5 p-2 border-top border-secondary-subtle">
@@ -46,13 +45,12 @@
     <!-- Contenido Principal -->
     <main class="flex-grow-1 p-3 p-md-4" style="max-width: 1200px;">
       
-      <!-- Título de sección -->
       <div class="mb-4">
         <h2 class="h4 fw-bold mb-1 titulo-scca">Administración del sistema</h2>
         <p class="text-secondary small mb-0">Fuentes, usuarios y operación del monitoreo</p>
       </div>
 
-      <!-- Tarjetas Métricas Superiores conectadas a la DB -->
+      <!-- Métricas Superiores -->
       <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3">
           <div class="metric-box">
@@ -80,7 +78,7 @@
         </div>
       </div>
 
-      <!-- SECCIÓN 1: Solicitudes pendientes de aprobación -->
+      <!-- SECCIÓN 1: Solicitudes pendientes -->
       <section id="admin-solicitudes" class="panel-box p-3 p-md-4 mb-4 border-start border-4 border-warning">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h3 class="h5 fw-bold mb-0 text-success-emphasis">
@@ -108,11 +106,11 @@
         </p>
       </section>
 
-      <!-- SECCIÓN 2: Usuarios y Roles actuales -->
+      <!-- SECCIÓN 2: Usuarios Activos -->
       <section id="seccion-usuarios" class="panel-box p-3 p-md-4 mb-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h3 class="h5 fw-bold mb-0 titulo-scca">
-            <i class="bi bi-people-fill me-1"></i> Usuarios y roles actuales
+            <i class="bi bi-people-fill me-1"></i> Usuarios y roles activos
           </h3>
           <button class="btn btn-sm btn-outline-secondary" onclick="cargarTodo()">
             <i class="bi bi-arrow-clockwise"></i> Actualizar
@@ -128,13 +126,44 @@
                 <th>Email</th>
                 <th>Rol</th>
                 <th>Estado</th>
+                <th class="text-end">Acción</th>
               </tr>
             </thead>
             <tbody id="filas-usuarios"></tbody>
           </table>
         </div>
         <p id="nada-usuarios" class="text-muted small mt-3 mb-0 d-none text-center py-2">
-          No hay usuarios registrados aún.
+          No hay usuarios activos registrados.
+        </p>
+      </section>
+
+      <!-- SECCIÓN 3: Zona difuminada de Cuentas Inactivas -->
+      <section id="seccion-inactivos" class="panel-box p-3 p-md-4 mb-4 border-secondary-subtle">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h3 class="h6 fw-bold mb-0 text-muted">
+            <i class="bi bi-person-x-fill me-1"></i> Cuentas inhabilitadas
+          </h3>
+          <span class="badge bg-secondary" id="tag-inactivos">0 inactivos</span>
+        </div>
+        <p class="text-muted small mb-3">Usuarios suspendidos o dados de baja del sistema.</p>
+
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0 tabla-difuminada">
+            <thead>
+              <tr class="text-muted small">
+                <th>Usuario</th>
+                <th>Nombre</th>
+                <th>Email</th>
+                <th>Rol previo</th>
+                <th>Estado</th>
+                <th class="text-end">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="filas-inactivos"></tbody>
+          </table>
+        </div>
+        <p id="nada-inactivos" class="text-muted small mt-2 mb-0 d-none text-center py-2">
+          No hay usuarios inhabilitados.
         </p>
       </section>
 

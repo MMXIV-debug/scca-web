@@ -113,41 +113,81 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // 2. Usuarios activos
+  // 2. Usuarios activos e inactivos separados
   async function cargarUsuarios() {
     try {
       const r = await fetch('/api/admin/usuarios', { headers: H });
       if (!r.ok) return;
 
-      const usuarios = await r.json();
-      const tb = document.getElementById('filas-usuarios');
-      const nada = document.getElementById('nada-usuarios');
+      const todos = await r.json();
+
+      const activos = todos.filter(u => u.estado === 'aprobado' && u.activo === true);
+      const inactivos = todos.filter(u => u.estado === 'inactivo' || u.activo === false);
+
+      // Tabla: Activos
+      const tbActivos = document.getElementById('filas-usuarios');
+      const nadaActivos = document.getElementById('nada-usuarios');
       const kpi = document.getElementById('kpi-usuarios-activos');
 
-      tb.innerHTML = '';
-      kpi.textContent = `${usuarios.length} cuentas activas`;
+      tbActivos.innerHTML = '';
+      if (kpi) kpi.textContent = `${activos.length} cuentas activas`;
 
-      if (usuarios.length === 0) {
-        nada.classList.remove('d-none');
-        return;
+      if (activos.length === 0) {
+        nadaActivos.classList.remove('d-none');
+      } else {
+        nadaActivos.classList.add('d-none');
+        activos.forEach(u => {
+          const tr = document.createElement('tr');
+          const rolBadge = u.rol === 'Administrador' ? 'badge-admin' : 'badge-vis';
+
+          tr.innerHTML = `
+            <td class="fw-bold">${u.username}</td>
+            <td>${u.nombre_completo}</td>
+            <td class="text-muted small">${u.email || '—'}</td>
+            <td><span class="badge-rol ${rolBadge}">${u.rol}</span></td>
+            <td><span class="badge bg-success-subtle text-success border border-success-subtle">Activo</span></td>
+            <td class="text-end">
+              <button class="btn-inhabilitar" onclick="inhabilitarUsuario(${u.id}, '${u.username}')">
+                Inhabilitar
+              </button>
+            </td>
+          `;
+          tbActivos.appendChild(tr);
+        });
       }
-      nada.classList.add('d-none');
 
-      usuarios.forEach(u => {
-        const tr = document.createElement('tr');
-        const rolBadge = u.rol === 'Administrador' ? 'badge-admin' : 'badge-vis';
+      // Tabla: Inactivos (difuminados)
+      const tbInactivos = document.getElementById('filas-inactivos');
+      const nadaInactivos = document.getElementById('nada-inactivos');
+      const tagInactivos = document.getElementById('tag-inactivos');
 
-        tr.innerHTML = `
-          <td class="fw-bold">${u.username}</td>
-          <td>${u.nombre_completo}</td>
-          <td class="text-muted small">${u.email || '—'}</td>
-          <td><span class="badge-rol ${rolBadge}">${u.rol}</span></td>
-          <td><span class="badge bg-success-subtle text-success border border-success-subtle">Activo</span></td>
-        `;
-        tb.appendChild(tr);
-      });
+      tbInactivos.innerHTML = '';
+      if (tagInactivos) tagInactivos.textContent = `${inactivos.length} inactivos`;
+
+      if (inactivos.length === 0) {
+        nadaInactivos.classList.remove('d-none');
+      } else {
+        nadaInactivos.classList.add('d-none');
+        inactivos.forEach(u => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="fw-semibold text-secondary text-decoration-line-through">${u.username}</td>
+            <td>${u.nombre_completo}</td>
+            <td class="small">${u.email || '—'}</td>
+            <td><span class="badge bg-light text-secondary border">${u.rol}</span></td>
+            <td><span class="badge bg-danger-subtle text-danger border border-danger-subtle">Inactivo</span></td>
+            <td class="text-end">
+              <button class="btn-reactivar" onclick="reactivarUsuario(${u.id})">
+                Reactivar
+              </button>
+            </td>
+          `;
+          tbInactivos.appendChild(tr);
+        });
+      }
+
     } catch (e) {
-      console.error(e);
+      console.error('Error cargando usuarios:', e);
     }
   }
 
@@ -192,6 +232,40 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error(e);
     }
   }
+
+  window.inhabilitarUsuario = async function(id, username) {
+    const motivo = prompt(`¿Por qué motivo deseas inhabilitar al usuario "${username}"?`, 'Violación de políticas / Fin de ciclo');
+    if (motivo === null) return;
+
+    try {
+      const r = await fetch(`/api/admin/usuarios/${id}/inhabilitar`, {
+        method: 'POST',
+        headers: H,
+        body: JSON.stringify({ motivo })
+      });
+      const d = await r.json();
+      if (!r.ok) return alert(d.error || 'No se pudo inhabilitar');
+      cargarTodo();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  window.reactivarUsuario = async function(id) {
+    if (!confirm('¿Deseas restaurar el acceso para esta cuenta?')) return;
+
+    try {
+      const r = await fetch(`/api/admin/usuarios/${id}/reactivar`, {
+        method: 'POST',
+        headers: H
+      });
+      const d = await r.json();
+      if (!r.ok) return alert(d.error || 'No se pudo reactivar');
+      cargarTodo();
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   init();
 });

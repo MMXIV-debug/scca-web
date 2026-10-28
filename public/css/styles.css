@@ -86,7 +86,6 @@ body.login-body {
   box-shadow: 0 0 0 0.25rem rgba(29, 79, 145, 0.25);
 }
 
-/* Botón SCCA */
 .btn-scca {
   background-color: var(--azul);
   color: #ffffff;
@@ -105,8 +104,7 @@ body.login-body {
 .btn-scca:active {
   transform: scale(0.98);
 }
-
-/* Alertas de Login */
+  
 .alert-custom-error {
   background-color: #fde8e8;
   border: 1px solid #f8b4b4;
@@ -285,4 +283,49 @@ body.dashboard-body {
   background-color: #e9e4d2;
   color: var(--texto);
   border: 1px solid var(--borde);
+}
+
+/* ZONA DE CUENTAS INACTIVAS (DIFUMINADAS)*/
+.tabla-difuminada tbody tr {
+  opacity: 0.45;
+  filter: grayscale(80%);
+  transition: all 0.25s ease;
+}
+
+.tabla-difuminada tbody tr:hover {
+  opacity: 0.90;
+  filter: grayscale(0%);
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.btn-inhabilitar {
+  background: transparent;
+  color: #b91c1c;
+  border: 1px solid #b91c1c;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-inhabilitar:hover {
+  background-color: #b91c1c;
+  color: #ffffff;
+}
+
+.btn-reactivar {
+  background: transparent;
+  color: var(--azul);
+  border: 1px solid var(--azul);
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-reactivar:hover {
+  background-color: var(--azul);
+  color: #ffffff;
 }
