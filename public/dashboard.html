@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>AIRE | Calidad del aire - Administración</title>
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  
+  <!-- Estilos globales -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="dashboard-body">
+
+  <!-- Header Superior -->
+  <header class="header-scca py-2 px-3 px-md-4">
+    <div class="container-fluid d-flex justify-content-between align-items-center p-0">
+      <span class="brand-text fs-5">AIRE | Calidad del aire</span>
+      <div class="d-flex align-items-center gap-3">
+        <span id="quien" class="user-tag small fw-bold"></span>
+        <button id="btn-salir" class="btn-salir" type="button">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="admin-layout">
+    <!-- Sidebar Izquierda -->
+    <aside class="sidebar-scca p-3 d-none d-md-block">
+      <nav class="nav flex-column">
+        <a class="sidebar-link active" href="#"><i class="bi bi-grid-1x2 me-2"></i>Resumen</a>
+        <a class="sidebar-link" href="#seccion-usuarios"><i class="bi bi-people me-2"></i>Usuarios y roles</a>
+        <a class="sidebar-link text-muted" href="#"><i class="bi bi-geo-alt me-2"></i>Sitios y fuentes</a>
+        <a class="sidebar-link text-muted" href="#"><i class="bi bi-shield-check me-2"></i>Políticas de monitoreo</a>
+        <a class="sidebar-link text-muted" href="#"><i class="bi bi-cpu me-2"></i>Simulaciones</a>
+        <a class="sidebar-link text-muted" href="#"><i class="bi bi-bar-chart me-2"></i>Reportes</a>
+      </nav>
+      
+      <div class="mt-5 p-2 border-top border-secondary-subtle">
+        <span class="badge bg-secondary-subtle text-dark border">PROTOTIPO SCCA</span>
+        <p class="text-muted small mt-2 mb-0" style="font-size: 11px;">Módulo de gestión de usuarios activo.</p>
+      </div>
+    </aside>
+
+    <!-- Contenido Principal -->
+    <main class="flex-grow-1 p-3 p-md-4" style="max-width: 1200px;">
+      
+      <!-- Título de sección -->
+      <div class="mb-4">
+        <h2 class="h4 fw-bold mb-1 titulo-scca">Administración del sistema</h2>
+        <p class="text-secondary small mb-0">Fuentes, usuarios y operación del monitoreo</p>
+      </div>
+
+      <!-- Tarjetas Métricas Superiores conectadas a la DB -->
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+          <div class="metric-box">
+            <div class="metric-title">Fuentes físicas</div>
+            <div class="metric-value" id="kpi-fuentes-fisicas">0 nodos / 0 sensores</div>
+          </div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="metric-box">
+            <div class="metric-title">Simulaciones</div>
+            <div class="metric-value" id="kpi-simulaciones">0 activas</div>
+          </div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="metric-box border-success">
+            <div class="metric-title">Usuarios</div>
+            <div class="metric-value" id="kpi-usuarios-activos">0 cuentas activas</div>
+          </div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="metric-box border-warning">
+            <div class="metric-title">Solicitudes</div>
+            <div class="metric-value text-warning-emphasis" id="kpi-solicitudes">0 pendientes</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECCIÓN 1: Solicitudes pendientes de aprobación -->
+      <section id="admin-solicitudes" class="panel-box p-3 p-md-4 mb-4 border-start border-4 border-warning">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 class="h5 fw-bold mb-0 text-success-emphasis">
+            <i class="bi bi-person-exclamation me-1 text-warning"></i> Solicitudes pendientes
+          </h3>
+          <span class="badge bg-warning text-dark" id="tag-pendientes">0 por revisar</span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-scca align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Nombre</th>
+                <th>Rol solicitado</th>
+                <th>Aprobar como</th>
+                <th class="text-end">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="filas-solicitudes"></tbody>
+          </table>
+        </div>
+        <p id="nada-solicitudes" class="text-muted small mt-3 mb-0 d-none text-center py-2">
+          No hay solicitudes pendientes en este momento.
+        </p>
+      </section>
+
+      <!-- SECCIÓN 2: Usuarios y Roles actuales -->
+      <section id="seccion-usuarios" class="panel-box p-3 p-md-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 class="h5 fw-bold mb-0 titulo-scca">
+            <i class="bi bi-people-fill me-1"></i> Usuarios y roles actuales
+          </h3>
+          <button class="btn btn-sm btn-outline-secondary" onclick="cargarTodo()">
+            <i class="bi bi-arrow-clockwise"></i> Actualizar
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-scca align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Nombre completo</th>
+                <th>Email</th>
+                <th>Rol</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="filas-usuarios"></tbody>
+          </table>
+        </div>
+        <p id="nada-usuarios" class="text-muted small mt-3 mb-0 d-none text-center py-2">
+          No hay usuarios registrados aún.
+        </p>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Bootstrap 5 JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- Lógica JS del Dashboard -->
+  <script src="js/dashboard.js"></script>
+</body>
+</html>
