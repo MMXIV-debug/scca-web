@@ -1,11 +1,10 @@
 require('dotenv').config();
 const express = require('express');
-const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const app = express();
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = require('./db/database'); // Aquí llamas a tu Singleton
 
 app.use(express.json());
 app.use(express.static('public'));
@@ -177,12 +176,12 @@ async function resolver(req, res, nuevoEstado) {
   try {
     await client.query('BEGIN');
 
-    const r = await client.query(
+const r = await client.query(
       `UPDATE usuario SET 
-          estado = $1,
-          activo = ($1 = 'aprobado'),
+          estado = $1::varchar,
+          activo = ($1::varchar = 'aprobado'),
           rol_id = CASE 
-                     WHEN $1 = 'aprobado' THEN COALESCE((SELECT id FROM rol WHERE nombre = $2), rol_solicitado_id)
+                     WHEN $1::varchar = 'aprobado' THEN COALESCE((SELECT id FROM rol WHERE nombre = $2), rol_solicitado_id)
                      ELSE NULL 
                    END,
           aprobado_por = $3, 
