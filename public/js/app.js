@@ -64,7 +64,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         localStorage.setItem('token', data.token);
-        window.location.href = '/dashboard.html';
+        
+        // Redirigir según el rol
+        if (data.rol === 'Administrador') {
+          window.location.href = '/dashboard.html';
+        } else {
+          // Si es Visualizador u otro, va a la pantalla básica
+          window.location.href = '/visualizador.html';
+        }
+        
       } catch (err) {
         showMessage('No se pudo conectar con el servidor.', false);
       } finally {
