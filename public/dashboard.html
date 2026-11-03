@@ -19,7 +19,7 @@
 <header class="header-scca py-2 px-3 px-md-4">
     <div class="container-fluid d-flex justify-content-between align-items-center p-0">
       <span class="brand-text fs-5">AIRE | Calidad del aire</span>
-      <div class="d-flex align-items-center gap-3">
+      <div class="header-actions d-flex align-items-center gap-3">
         
         <!-- Botón mágico del Modo Oscuro -->
         <button onclick="toggleDarkMode()" class="btn btn-sm btn-outline-secondary">
@@ -34,8 +34,8 @@
 
   <div class="admin-layout">
     <!-- Sidebar Izquierda -->
-    <aside class="sidebar-scca p-3 d-none d-md-block">
-      <nav class="nav flex-column">
+    <aside class="sidebar-scca p-3">
+      <nav class="nav flex-column" aria-label="Navegación principal">
         <a class="sidebar-link active" href="#"><i class="bi bi-grid-1x2 me-2"></i>Resumen</a>
         <a class="sidebar-link" href="#seccion-usuarios"><i class="bi bi-people me-2"></i>Usuarios y roles</a>
         <a class="sidebar-link" href="#seccion-inactivos"><i class="bi bi-person-x me-2"></i>Inactivos</a>
@@ -50,7 +50,7 @@
     </aside>
 
     <!-- Contenido Principal -->
-    <main class="flex-grow-1 p-3 p-md-4" style="max-width: 1200px;">
+    <main class="dashboard-content flex-grow-1 p-3 p-md-4" tabindex="0" aria-label="Contenido de administración">
       
       <div class="mb-4">
         <h2 class="h4 fw-bold mb-1 titulo-scca">Administración del sistema</h2>

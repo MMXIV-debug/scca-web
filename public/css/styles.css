@@ -329,3 +329,104 @@ body.dashboard-body {
   background-color: var(--azul);
   color: #ffffff;
 }
+
+/* Mantener encabezado y navegación visibles; solo se desplaza el contenido. */
+body.dashboard-body {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.dashboard-body .header-scca {
+  min-width: 0;
+  z-index: 10;
+}
+
+.dashboard-body .header-scca > .container-fluid {
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-body .header-actions {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.dashboard-body .user-tag {
+  overflow-wrap: anywhere;
+}
+
+.dashboard-body .admin-layout {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dashboard-body .sidebar-scca {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.dashboard-content {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-padding-top: 1rem;
+}
+
+@media (max-width: 767.98px) {
+  .dashboard-body .header-scca > .container-fluid {
+    align-items: stretch !important;
+    flex-direction: column;
+  }
+
+  .dashboard-body .header-actions {
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.5rem !important;
+  }
+
+  .dashboard-body .btn-salir {
+    white-space: nowrap;
+    padding-inline: 0.5rem;
+  }
+
+  .dashboard-body .admin-layout {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .dashboard-body .sidebar-scca {
+    width: 100%;
+    padding: 0.5rem !important;
+    border-right: 0;
+    border-bottom: 1px solid var(--borde);
+    overflow: hidden;
+  }
+
+  .dashboard-body .sidebar-scca nav {
+    flex-direction: row !important;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 0.25rem;
+  }
+
+  .dashboard-body .sidebar-link {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    margin-bottom: 0;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .dashboard-body .sidebar-scca > div {
+    display: none;
+  }
+
+  .dashboard-content .panel-box > .d-flex {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}
