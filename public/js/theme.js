@@ -1,56 +1,51 @@
-// 1. Definimos las Estrategias
-const LightThemeStrategy = {
-  apply: () => {
-    document.documentElement.setAttribute('data-bs-theme', 'light');
-    localStorage.setItem('scca_theme', 'light');
-  }
-};
-
-const DarkThemeStrategy = {
-  apply: () => {
-    document.documentElement.setAttribute('data-bs-theme', 'dark');
-    localStorage.setItem('scca_theme', 'dark');
-  }
-};
-
-// 2. El Contexto que usa las estrategias (y también lo hacemos Singleton)
-class ThemeContext {
-  constructor() {
-    if (!ThemeContext.instance) {
-      this.strategy = LightThemeStrategy;
-      ThemeContext.instance = this;
-    }
-    return ThemeContext.instance;
-  }
-
-  setStrategy(strategy) {
-    this.strategy = strategy;
-  }
-
-  applyTheme() {
-    this.strategy.apply();
-  }
-
-  toggle() {
-    const currentTheme = localStorage.getItem('scca_theme') || 'light';
-    if (currentTheme === 'light') {
-      this.setStrategy(DarkThemeStrategy);
-    } else {
-      this.setStrategy(LightThemeStrategy);
-    }
-    this.applyTheme();
-  }
-
-  init() {
-    const savedTheme = localStorage.getItem('scca_theme') || 'light';
-    this.setStrategy(savedTheme === 'dark' ? DarkThemeStrategy : LightThemeStrategy);
-    this.applyTheme();
+// Factory Method: productos que comparten la operación apply().
+class Theme {
+  constructor(name) { this.name = name; }
+  apply() {
+    document.documentElement.setAttribute('data-bs-theme', this.name);
+    try { localStorage.setItem('scca_theme', this.name); } catch { /* El tema funciona sin almacenamiento. */ }
   }
 }
+class LightTheme extends Theme { constructor() { super('light'); } }
+class DarkTheme extends Theme { constructor() { super('dark'); } }
 
-// Inicializamos el Singleton del tema
-const themeManager = new ThemeContext();
-themeManager.init();
-
-// Exponemos la función al botón del HTML
-window.toggleDarkMode = () => themeManager.toggle();
+// Creator: applyTheme usa el producto devuelto por el método fábrica.
+class ThemeCreator {
+  createTheme() { throw new Error('Cada creador debe implementar createTheme().'); }
+  applyTheme() {
+    const theme = this.createTheme();
+    theme.apply();
+    return theme;
+  }
+}
+// Concrete creators: cada subclase decide qué producto construir.
+class LightThemeCreator extends ThemeCreator {
+  createTheme() { return new LightTheme(); }
+}
+class DarkThemeCreator extends ThemeCreator {
+  createTheme() { return new DarkTheme(); }
+}
+const themeCreators = { light: new LightThemeCreator(), dark: new DarkThemeCreator() };
+function updateThemeButtons() {
+  const dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+  document.querySelectorAll('[data-theme-toggle]').forEach(button => {
+    const label = dark ? 'Activar modo claro' : 'Activar modo oscuro';
+    button.setAttribute('aria-label', label);
+    button.setAttribute('title', label);
+    button.setAttribute('aria-pressed', String(dark));
+    button.querySelector('i').className = dark ? 'bi bi-sun' : 'bi bi-moon-stars';
+  });
+}
+function applyTheme(name) {
+  const creator = themeCreators[name] || themeCreators.light;
+  creator.applyTheme();
+  updateThemeButtons();
+}
+let savedTheme = 'light';
+try { savedTheme = localStorage.getItem('scca_theme') || 'light'; } catch { /* Usar tema claro. */ }
+applyTheme(savedTheme); // Antes de pintar el contenido, para evitar destellos.
+window.toggleDarkMode = () => applyTheme(document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark');
+document.addEventListener('DOMContentLoaded', updateThemeButtons);
+window.addEventListener('storage', event => {
+  if (event.key === 'scca_theme') applyTheme(event.newValue);
+});
