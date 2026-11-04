@@ -1,11 +1,10 @@
 require('dotenv').config();
 const express = require('express');
-const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const app = express();
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = require('./db/database'); // Aquí llamas a tu Singleton
 
 app.use(express.json());
 app.use(express.static('public'));
@@ -179,10 +178,10 @@ async function resolver(req, res, nuevoEstado) {
 
     const r = await client.query(
       `UPDATE usuario SET 
-          estado = $1,
-          activo = ($1 = 'aprobado'),
+          estado = $1::varchar,
+          activo = ($1::varchar = 'aprobado'),
           rol_id = CASE 
-                     WHEN $1 = 'aprobado' THEN COALESCE((SELECT id FROM rol WHERE nombre = $2), rol_solicitado_id)
+                     WHEN $1::varchar = 'aprobado' THEN COALESCE((SELECT id FROM rol WHERE nombre = $2), rol_solicitado_id)
                      ELSE NULL 
                    END,
           aprobado_por = $3, 
@@ -222,7 +221,6 @@ async function resolver(req, res, nuevoEstado) {
 app.post('/api/admin/solicitudes/:id/aprobar', auth, soloAdmin, (req, res) => resolver(req, res, 'aprobado'));
 app.post('/api/admin/solicitudes/:id/rechazar', auth, soloAdmin, (req, res) => resolver(req, res, 'rechazado'));
 
-// Endpoint para inhabilitar cuenta con registro en auditoria_evento
 app.post('/api/admin/usuarios/:id/inhabilitar', auth, soloAdmin, async (req, res) => {
   const id = +req.params.id;
   const motivo = req.body.motivo || 'Inhabilitado por administrador';
@@ -234,31 +232,18 @@ app.post('/api/admin/usuarios/:id/inhabilitar', auth, soloAdmin, async (req, res
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-
     const u = await client.query(
-      `UPDATE usuario 
-       SET activo = false, estado = 'inactivo' 
-       WHERE id = $1 AND estado = 'aprobado' 
-       RETURNING id, username`,
+      `UPDATE usuario SET activo = false, estado = 'inactivo' WHERE id = $1 AND estado = 'aprobado' RETURNING id, username`,
       [id]
     );
-
     if (!u.rowCount) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Usuario no encontrado o no está aprobado' });
     }
-
     await client.query(
-      `INSERT INTO auditoria_evento (usuario_id, entidad, entidad_id, accion, motivo, datos_despues)
-       VALUES ($1, 'usuario', $2, 'inhabilitar', $3, $4)`,
-      [
-        req.user.id,
-        id,
-        motivo,
-        JSON.stringify({ estado: 'inactivo', activo: false })
-      ]
+      `INSERT INTO auditoria_evento (usuario_id, entidad, entidad_id, accion, motivo, datos_despues) VALUES ($1, 'usuario', $2, 'inhabilitar', $3, $4)`,
+      [req.user.id, id, motivo, JSON.stringify({ estado: 'inactivo', activo: false })]
     );
-
     await client.query('COMMIT');
     res.json({ ok: true, mensaje: 'Usuario inhabilitado correctamente' });
   } catch (e) {
@@ -270,33 +255,23 @@ app.post('/api/admin/usuarios/:id/inhabilitar', auth, soloAdmin, async (req, res
   }
 });
 
-// Endpoint opcional para reactivar cuenta inhabilitada
 app.post('/api/admin/usuarios/:id/reactivar', auth, soloAdmin, async (req, res) => {
   const id = +req.params.id;
   const client = await pool.connect();
-
   try {
     await client.query('BEGIN');
-
     const u = await client.query(
-      `UPDATE usuario 
-       SET activo = true, estado = 'aprobado' 
-       WHERE id = $1 AND estado = 'inactivo' 
-       RETURNING id, username`,
+      `UPDATE usuario SET activo = true, estado = 'aprobado' WHERE id = $1 AND estado = 'inactivo' RETURNING id, username`,
       [id]
     );
-
     if (!u.rowCount) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Usuario inactivo no encontrado' });
     }
-
     await client.query(
-      `INSERT INTO auditoria_evento (usuario_id, entidad, entidad_id, accion, motivo, datos_despues)
-       VALUES ($1, 'usuario', $2, 'reactivar', 'Reactivación de cuenta', $3)`,
+      `INSERT INTO auditoria_evento (usuario_id, entidad, entidad_id, accion, motivo, datos_despues) VALUES ($1, 'usuario', $2, 'reactivar', 'Reactivación de cuenta', $3)`,
       [req.user.id, id, JSON.stringify({ estado: 'aprobado', activo: true })]
     );
-
     await client.query('COMMIT');
     res.json({ ok: true, mensaje: 'Usuario reactivado correctamente' });
   } catch (e) {
@@ -305,6 +280,98 @@ app.post('/api/admin/usuarios/:id/reactivar', auth, soloAdmin, async (req, res) 
     res.status(500).json({ error: 'Error al reactivar usuario' });
   } finally {
     client.release();
+  }
+});
+
+// ---------- Datos para las Tablas del Dashboard y Visualizador ----------
+app.get('/api/admin/sitios-fuentes', auth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT 
+        si.nombre AS sitio, si.latitud, si.longitud,
+        n.codigo AS nodo, n.estado,
+        s.origen, s.modelo
+      FROM sitio si
+      LEFT JOIN nodo n ON n.sitio_id = si.id
+      LEFT JOIN sensor s ON s.nodo_id = n.id
+    `);
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'Error cargando sitios' });
+  }
+});
+
+app.get('/api/admin/parametros', auth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT 
+        v.nombre AS parametro, u.simbolo AS unidad, s.origen, s.modelo,
+        (SELECT valor FROM lectura_original l 
+         WHERE l.variable_id = v.id 
+         ORDER BY medido_en DESC LIMIT 1) AS ultima_medicion
+      FROM variable v
+      JOIN unidad u ON v.unidad_id = u.id
+      JOIN sensor_variable sv ON sv.variable_id = v.id
+      JOIN sensor s ON s.id = sv.sensor_id
+    `);
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'Error cargando parámetros' });
+  }
+});
+
+// ---------- Resumen para el Visualizador (Cálculo de ICA) ----------
+app.get('/api/visualizador/resumen', auth, async (req, res) => {
+  try {
+    const sitiosQuery = await pool.query('SELECT COUNT(*) AS total FROM sitio');
+    const nodosQuery = await pool.query("SELECT COUNT(*) AS total FROM nodo WHERE estado = 'activo'");
+    
+    const medicionesQuery = await pool.query(`
+      SELECT v.codigo, l.valor
+      FROM lectura_original l
+      JOIN variable v ON l.variable_id = v.id
+      WHERE l.medido_en = (SELECT MAX(medido_en) FROM lectura_original)
+    `);
+
+    let ica = 'Sin datos';
+    let color = 'secondary'; 
+
+    if (medicionesQuery.rows.length > 0) {
+      const valores = {};
+      medicionesQuery.rows.forEach(r => valores[r.codigo] = parseFloat(r.valor));
+
+      // Calculamos basado en PM2.5 (ajustar según estándares de Bolivia o EPA)
+      if (valores['PM25'] !== undefined) {
+        const pm25 = valores['PM25'];
+        if (pm25 <= 12.0) {
+            ica = 'Buena';
+            color = 'success';
+        } else if (pm25 <= 35.4) {
+            ica = 'Moderada';
+            color = 'warning';
+        } else if (pm25 <= 55.4) {
+            ica = 'Dañina (Grupos Sensibles)';
+            color = 'orange'; 
+        } else if (pm25 <= 150.4) {
+            ica = 'Dañina';
+            color = 'danger';
+        } else {
+             ica = 'Muy Dañina / Peligrosa';
+             color = 'dark';
+        }
+      }
+    }
+
+    res.json({
+      sitios_definidos: parseInt(sitiosQuery.rows[0].total) || 0,
+      nodos_ubicados: parseInt(nodosQuery.rows[0].total) || 0,
+      ica_estado: ica,
+      ica_color: color
+    });
+
+  } catch (e) {
+    console.error('Error al obtener resumen del visualizador:', e);
+    res.status(500).json({ error: 'Error interno' });
   }
 });
 

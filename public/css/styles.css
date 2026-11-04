@@ -329,3 +329,175 @@ body.dashboard-body {
   background-color: var(--azul);
   color: #ffffff;
 }
+
+/* Mantener encabezado y navegación visibles; solo se desplaza el contenido. */
+body.dashboard-body {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.dashboard-body .header-scca {
+  min-width: 0;
+  z-index: 10;
+}
+
+.dashboard-body .header-scca > .container-fluid {
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-body .header-actions {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.dashboard-body .user-tag {
+  overflow-wrap: anywhere;
+}
+
+.dashboard-body .admin-layout {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dashboard-body .sidebar-scca {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.dashboard-content {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-padding-top: 1rem;
+}
+
+@media (max-width: 767.98px) {
+  .dashboard-body .header-scca > .container-fluid {
+    align-items: stretch !important;
+    flex-direction: column;
+  }
+
+  .dashboard-body .header-actions {
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.5rem !important;
+  }
+
+  .dashboard-body .btn-salir {
+    white-space: nowrap;
+    padding-inline: 0.5rem;
+  }
+
+  .dashboard-body .admin-layout {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .dashboard-body .sidebar-scca {
+    width: 100%;
+    padding: 0.5rem !important;
+    border-right: 0;
+    border-bottom: 1px solid var(--borde);
+    overflow: hidden;
+  }
+
+  .dashboard-body .sidebar-scca nav {
+    flex-direction: row !important;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 0.25rem;
+  }
+
+  .dashboard-body .sidebar-link {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    margin-bottom: 0;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .dashboard-body .sidebar-scca > div {
+    display: none;
+  }
+
+  .dashboard-content .panel-box > .d-flex {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}
+
+/* Temas SCCA: superficies verdes oscuras y acentos dorados. */
+.theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  color: var(--dorado-cl);
+  background: rgba(230, 198, 92, 0.07);
+  border: 1px solid rgba(230, 198, 92, 0.4);
+  border-radius: 10px;
+}
+.theme-toggle:hover { color: #fff1b1; background: rgba(230, 198, 92, 0.18); border-color: var(--dorado-cl); }
+.theme-toggle:focus-visible { outline: 3px solid var(--dorado-cl); outline-offset: 3px; }
+
+[data-bs-theme="dark"] {
+  color-scheme: dark;
+  --crema: #162a25;
+  --texto: #e4ede7;
+  --borde: #344b41;
+  --bs-body-bg: #101e1a;
+  --bs-body-color: #e4ede7;
+  --bs-secondary-color: #adbbb2;
+  --bs-secondary-color-rgb: 173, 187, 178;
+  --bs-secondary-rgb: 173, 187, 178;
+  --bs-border-color: #344b41;
+  --bs-secondary-bg: #20372e;
+  --bs-tertiary-bg: #1b3028;
+}
+[data-bs-theme="dark"] body.dashboard-body { background: #101e1a; }
+[data-bs-theme="dark"] .header-scca { background: linear-gradient(110deg, #09271f, #123e30); border-bottom-color: #8d7738; }
+[data-bs-theme="dark"] .sidebar-scca { background: #13261f; }
+[data-bs-theme="dark"] .sidebar-link { color: #c5d3ca; }
+[data-bs-theme="dark"] .sidebar-link:hover { background: #203c30; color: #f2dc91; }
+[data-bs-theme="dark"] .sidebar-link.active { background: #264c39; color: #f2d77f; box-shadow: inset 3px 0 #c9a227; }
+[data-bs-theme="dark"] .titulo-scca,
+[data-bs-theme="dark"] .metric-title { color: #b8d9c4; }
+[data-bs-theme="dark"] .metric-box,
+[data-bs-theme="dark"] .panel-box { box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15); }
+[data-bs-theme="dark"] .metric-value { color: #edf4ef; }
+[data-bs-theme="dark"] .table { --bs-table-bg: transparent; --bs-table-color: #e4ede7; --bs-table-border-color: #344b41; }
+[data-bs-theme="dark"] .table-scca thead th { color: #c6d8b9; border-bottom-color: #726434; }
+[data-bs-theme="dark"] .text-dark { color: #e4ede7 !important; }
+[data-bs-theme="dark"] .bg-warning.text-dark,
+[data-bs-theme="dark"] .bg-info.text-dark { color: #10281d !important; }
+[data-bs-theme="dark"] .bg-info { background-color: #a8cfb7 !important; }
+[data-bs-theme="dark"] .bg-warning { background-color: #d6b956 !important; }
+[data-bs-theme="dark"] .border-warning { border-color: #8d7738 !important; }
+[data-bs-theme="dark"] .border-success { border-color: #46785a !important; }
+[data-bs-theme="dark"] .text-success { color: #9cd2ae !important; }
+[data-bs-theme="dark"] .text-warning { color: #e6c65c !important; }
+[data-bs-theme="dark"] .badge-admin { background: #264c39; color: #f2d77f; }
+[data-bs-theme="dark"] .badge-vis,
+[data-bs-theme="dark"] .bg-light { background: #253b31 !important; color: #d5e2da !important; }
+[data-bs-theme="dark"] .bg-secondary { background: #42594e !important; color: #edf4ef; }
+[data-bs-theme="dark"] .btn-outline-secondary { --bs-btn-color: #bdcbc2; --bs-btn-border-color: #60786b; --bs-btn-hover-bg: #2b4638; --bs-btn-hover-color: #fff; --bs-btn-hover-border-color: #8da595; }
+[data-bs-theme="dark"] .btn-rechazar { color: #c6dbcd; border-color: #789c85; }
+[data-bs-theme="dark"] .btn-inhabilitar { color: #f2aaa2; border-color: #ae716a; }
+[data-bs-theme="dark"] .btn-inhabilitar:hover { background: #753c38; color: #fff; }
+[data-bs-theme="dark"] .btn-reactivar { color: #9fc9ed; border-color: #648fb4; }
+[data-bs-theme="dark"] .btn-reactivar:hover { background: #254966; color: #fff; }
+[data-bs-theme="dark"] .tabla-difuminada tbody tr { opacity: 1; filter: none; color: #adbbb2; }
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select { background-color: #10221b; color: #e4ede7; }
+[data-bs-theme="dark"] .dashboard-content,
+[data-bs-theme="dark"] .sidebar-scca { scrollbar-color: #536f60 #13261f; }
+/* Los destinos de navegación reciben foco sin dibujar un marco alrededor del panel. */
+.dashboard-content [tabindex="-1"]:focus { outline: none; }
+[data-bs-theme="dark"] .sidebar-link:focus-visible,
+[data-bs-theme="dark"] .btn:focus-visible { outline: 2px solid var(--dorado-cl); outline-offset: 2px; }

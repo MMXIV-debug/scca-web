@@ -11,14 +11,21 @@
   
   <!-- Estilos globales -->
   <link rel="stylesheet" href="css/styles.css">
+  <script src="js/theme.js"></script>
 </head>
 <body class="dashboard-body">
 
   <!-- Header Superior -->
-  <header class="header-scca py-2 px-3 px-md-4">
+<header class="header-scca py-2 px-3 px-md-4">
     <div class="container-fluid d-flex justify-content-between align-items-center p-0">
       <span class="brand-text fs-5">AIRE | Calidad del aire</span>
-      <div class="d-flex align-items-center gap-3">
+      <div class="header-actions d-flex align-items-center gap-3">
+        
+        <!-- Botón mágico del Modo Oscuro -->
+        <button onclick="toggleDarkMode()" data-theme-toggle type="button" aria-label="Activar modo oscuro" aria-pressed="false" class="btn theme-toggle">
+          <i class="bi bi-moon-stars"></i>
+        </button>
+        
         <span id="quien" class="user-tag small fw-bold"></span>
         <button id="btn-salir" class="btn-salir" type="button">Cerrar sesión</button>
       </div>
@@ -27,13 +34,13 @@
 
   <div class="admin-layout">
     <!-- Sidebar Izquierda -->
-    <aside class="sidebar-scca p-3 d-none d-md-block">
-      <nav class="nav flex-column">
-        <a class="sidebar-link active" href="#"><i class="bi bi-grid-1x2 me-2"></i>Resumen</a>
+    <aside class="sidebar-scca p-3">
+      <nav class="nav flex-column" aria-label="Navegación principal">
+        <a class="sidebar-link active" href="#seccion-resumen" aria-current="location"><i class="bi bi-grid-1x2 me-2"></i>Resumen</a>
         <a class="sidebar-link" href="#seccion-usuarios"><i class="bi bi-people me-2"></i>Usuarios y roles</a>
         <a class="sidebar-link" href="#seccion-inactivos"><i class="bi bi-person-x me-2"></i>Inactivos</a>
-        <a class="sidebar-link text-muted" href="#"><i class="bi bi-geo-alt me-2"></i>Sitios y fuentes</a>
-        <a class="sidebar-link text-muted" href="#"><i class="bi bi-shield-check me-2"></i>Políticas</a>
+        <a class="sidebar-link" href="#seccion-sitios"><i class="bi bi-geo-alt me-2"></i>Sitios y fuentes</a>
+        <a class="sidebar-link" href="#seccion-politicas"><i class="bi bi-shield-check me-2"></i>Políticas</a>
       </nav>
       
       <div class="mt-5 p-2 border-top border-secondary-subtle">
@@ -43,9 +50,9 @@
     </aside>
 
     <!-- Contenido Principal -->
-    <main class="flex-grow-1 p-3 p-md-4" style="max-width: 1200px;">
+    <main class="dashboard-content flex-grow-1 p-3 p-md-4" tabindex="0" aria-label="Contenido de administración">
       
-      <div class="mb-4">
+      <div id="seccion-resumen" class="mb-4" tabindex="-1">
         <h2 class="h4 fw-bold mb-1 titulo-scca">Administración del sistema</h2>
         <p class="text-secondary small mb-0">Fuentes, usuarios y operación del monitoreo</p>
       </div>
@@ -165,6 +172,65 @@
         <p id="nada-inactivos" class="text-muted small mt-2 mb-0 d-none text-center py-2">
           No hay usuarios inhabilitados.
         </p>
+      </section>
+
+
+<!-- SECCIÓN: Sitios y fuentes -->
+      <section id="seccion-sitios" class="panel-box p-3 p-md-4 mb-4" tabindex="-1" aria-labelledby="titulo-sitios">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h3 id="titulo-sitios" class="h5 fw-bold mb-0 titulo-scca"><i class="bi bi-geo-alt me-1"></i> Sitios y fuentes</h3>
+          <span class="badge bg-secondary" id="badge-sitios">0 nodos ubicados</span>
+        </div>
+        <p class="text-secondary small mb-3">Ubicaciones de los nodos y fuentes de medición asociadas a cada sitio.</p>
+        
+        <div class="table-responsive">
+          <table class="table table-scca align-middle mb-0">
+            <thead>
+              <tr>
+                <th scope="col">SITIO</th>
+                <th scope="col">UBICACIÓN / COORDENADAS</th>
+                <th scope="col">NODO</th>
+                <th scope="col">SENSORES Y ORIGEN</th>
+                <th scope="col">ESTADO</th>
+              </tr>
+            </thead>
+            <tbody id="filas-sitios">
+              <tr>
+                <td colspan="5" class="text-center text-secondary py-4">
+                  Cargando nodos y ubicaciones...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SECCIÓN: Parámetros previstos -->
+      <section id="seccion-politicas" class="panel-box p-3 p-md-4 mb-4" tabindex="-1">
+        <div class="mb-3">
+          <h3 class="h5 fw-bold mb-1 titulo-scca">Parámetros previstos</h3>
+          <p class="text-secondary small mb-0">Alcance del piloto y últimas mediciones capturadas. Los valores ausentes se muestran como «Sin datos».</p>
+        </div>
+        
+        <div class="table-responsive">
+          <table class="table table-scca align-middle mb-0">
+            <thead>
+              <tr>
+                <th scope="col">PARÁMETRO</th>
+                <th scope="col">UNIDAD</th>
+                <th scope="col">ORIGEN PREVISTO</th>
+                <th scope="col">MEDICIÓN</th>
+              </tr>
+            </thead>
+            <tbody id="filas-parametros">
+              <tr>
+                <td colspan="4" class="text-center text-secondary py-4">
+                  Cargando parámetros...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
     </main>
