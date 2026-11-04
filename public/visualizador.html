@@ -26,8 +26,8 @@
       <span class="badge bg-info text-dark border">Visualizador</span>
       <button id="btn-salir" class="btn-salir" type="button">Cerrar sesión</button>
     </div>
+    </div>
   </header>
-
 
   <div class="admin-layout">
     <aside class="sidebar-scca p-3">
@@ -38,40 +38,70 @@
       </nav>
       <div class="mt-5 p-2 border-top"><span class="badge bg-secondary-subtle text-dark">PROTOTIPO SCCA</span><p class="small text-secondary mt-2">Panel de consulta.</p></div>
     </aside>
+    
     <main class="dashboard-content flex-grow-1 p-3 p-md-4" tabindex="0" aria-label="Contenido del visualizador">
+      
       <section id="seccion-resumen" class="mb-4" tabindex="-1">
         <h1 class="h4 titulo-scca">Resumen del monitoreo</h1>
         <p>Bienvenido, <span id="nombre-usuario"></span>.</p>
+        
         <div class="row g-3">
-          <div class="col-6 col-lg-4"><div class="metric-box"><div class="metric-title">Sitios definidos</div><div class="metric-value">0</div></div></div>
-          <div class="col-6 col-lg-4"><div class="metric-box"><div class="metric-title">Nodos ubicados</div><div class="metric-value">0</div></div></div>
-          <div class="col-12 col-lg-4"><div class="metric-box"><div class="metric-title">Mediciones</div><div class="metric-value">Sin datos</div></div></div>
+          <div class="col-6 col-lg-4"><div class="metric-box"><div class="metric-title">Sitios definidos</div><div class="metric-value" id="kpi-sitios-definidos">0</div></div></div>
+          <div class="col-6 col-lg-4"><div class="metric-box"><div class="metric-title">Nodos ubicados</div><div class="metric-value" id="kpi-nodos-ubicados">0</div></div></div>
+          <div class="col-12 col-lg-4"><div class="metric-box"><div class="metric-title">Calidad del Aire (ICA)</div><div class="metric-value" id="kpi-mediciones-ica">Sin datos</div></div></div>
         </div>
-        <p class="small text-secondary mt-3">Todavía no hay nodos definidos ni mediciones disponibles para consultar.</p>
+        
+        <p class="small text-secondary mt-3">Resumen en tiempo real del monitoreo y estado de los sitios.</p>
       </section>
-            <section id="seccion-sitios" class="panel-box p-3 p-md-4 mb-4" tabindex="-1" aria-labelledby="titulo-sitios">
+      
+      <!-- SECCIÓN: Sitios y fuentes -->
+      <section id="seccion-sitios" class="panel-box p-3 p-md-4 mb-4" tabindex="-1" aria-labelledby="titulo-sitios">
         <div class="d-flex justify-content-between align-items-center mb-2">
           <h3 id="titulo-sitios" class="h5 fw-bold mb-0 titulo-scca"><i class="bi bi-geo-alt me-1"></i> Sitios y fuentes</h3>
-          <span class="badge bg-secondary">0 nodos ubicados</span>
+          <span class="badge bg-secondary" id="badge-sitios">0 nodos ubicados</span>
         </div>
         <p class="text-secondary small mb-3">Ubicaciones de los nodos y fuentes de medición asociadas a cada sitio.</p>
         <div class="table-responsive">
           <table class="table table-scca align-middle mb-0">
-            <thead><tr><th scope="col">Sitio</th><th scope="col">Ubicación / coordenadas</th><th scope="col">Nodo</th><th scope="col">Sensores y origen</th><th scope="col">Estado</th></tr></thead>
-            <tbody><tr><td colspan="5" class="text-center text-secondary py-4">No hay nodos ni ubicaciones definidos todavía.</td></tr></tbody>
+            <thead>
+              <tr>
+                <th scope="col">SITIO</th>
+                <th scope="col">UBICACIÓN / COORDENADAS</th>
+                <th scope="col">NODO</th>
+                <th scope="col">SENSORES Y ORIGEN</th>
+                <th scope="col">ESTADO</th>
+              </tr>
+            </thead>
+            <tbody id="filas-sitios">
+              <tr><td colspan="5" class="text-center text-secondary py-4">Cargando nodos y ubicaciones...</td></tr>
+            </tbody>
           </table>
         </div>
-        <p class="small text-secondary mt-3 mb-0">Cuando se definan los nodos, este apartado permitirá consultar su sitio, ubicación y procedencia de los datos.</p>
       </section>
 
-
+      <!-- SECCIÓN: Parámetros previstos -->
       <section id="seccion-parametros" class="panel-box p-3 p-md-4 mb-4" tabindex="-1">
-        <h2 class="h5 titulo-scca">Parámetros previstos</h2>
-        <p class="small text-secondary">Alcance del piloto, pendiente de asignación a nodos y ubicaciones. Los valores ausentes se muestran como «Sin datos».</p>
-        <div class="table-responsive"><table class="table table-scca align-middle"><thead><tr><th>Parámetro</th><th>Unidad</th><th>Origen previsto</th><th>Medición</th></tr></thead><tbody>
-        <tr><td>Temperatura</td><td>°C</td><td>Real · sensor físico</td><td>Sin datos</td></tr><tr><td>Humedad relativa</td><td>%</td><td>Real · sensor físico</td><td>Sin datos</td></tr><tr><td>Presión</td><td>hPa</td><td>Real · sensor físico</td><td>Sin datos</td></tr><tr><td>PM1</td><td>µg/m³</td><td>Simulado · Python</td><td>Sin datos</td></tr><tr><td>PM2,5</td><td>µg/m³</td><td>Simulado · Python</td><td>Sin datos</td></tr><tr><td>PM10</td><td>µg/m³</td><td>Simulado · Python</td><td>Sin datos</td></tr>
-        </tbody></table></div>
+        <div class="mb-3">
+          <h2 class="h5 fw-bold mb-1 titulo-scca">Parámetros previstos</h2>
+          <p class="small text-secondary mb-0">Alcance del piloto y últimas mediciones capturadas. Los valores ausentes se muestran como «Sin datos».</p>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-scca align-middle">
+            <thead>
+              <tr>
+                <th>PARÁMETRO</th>
+                <th>UNIDAD</th>
+                <th>ORIGEN PREVISTO</th>
+                <th>MEDICIÓN</th>
+              </tr>
+            </thead>
+            <tbody id="filas-parametros">
+              <tr><td colspan="4" class="text-center text-secondary py-4">Cargando parámetros...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </section>
+
     </main>
   </div>
   <script src="js/visualizador.js"></script>
