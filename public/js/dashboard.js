@@ -41,14 +41,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  window.cargarTodo = async function() {
+window.cargarTodo = async function() {
     await Promise.all([
       cargarSolicitudes(), 
       cargarUsuarios(), 
-      cargarMetricasMonitoreo()
+      cargarMetricasMonitoreo(),
+      cargarSitios(),
+      cargarParametros()
     ]);
   };
-
   // 1. Solicitudes pendientes
   async function cargarSolicitudes() {
     try {
@@ -296,6 +297,63 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
     window.addEventListener('hashchange', () => mostrar(location.hash || '#seccion-resumen'));
     mostrar(location.hash || '#seccion-resumen', false);
+  }
+
+
+  async function cargarSitios() {
+    try {
+      const r = await fetch('/api/admin/sitios-fuentes', { headers: H });
+      if (!r.ok) return;
+      const datos = await r.json();
+      document.getElementById('badge-sitios').textContent = `${datos.length} nodos ubicados`;
+      
+      // Asume que tienes un <tbody> con id="filas-sitios"
+      const tb = document.getElementById('filas-sitios'); 
+      if(!tb) return;
+      
+      tb.innerHTML = '';
+      if(datos.length === 0) {
+        tb.innerHTML = '<tr><td colspan="5" class="text-center">No hay nodos definidos todavía.</td></tr>';
+        return;
+      }
+
+      datos.forEach(d => {
+        tb.innerHTML += `
+          <tr>
+            <td class="fw-bold">${d.sitio}</td>
+            <td>Lat: ${d.latitud}, Lon: ${d.longitud}</td>
+            <td>${d.nodo || '—'}</td>
+            <td>${d.origen === 'simulado' ? 'Simulado · Python' : 'Real'}</td>
+            <td><span class="badge bg-success-subtle text-success">${d.estado}</span></td>
+          </tr>
+        `;
+      });
+    } catch (e) { console.error(e); }
+  }
+
+  async function cargarParametros() {
+    try {
+      const r = await fetch('/api/admin/parametros', { headers: H });
+      if (!r.ok) return;
+      const datos = await r.json();
+      
+      // Asume que tienes un <tbody> con id="filas-parametros"
+      const tb = document.getElementById('filas-parametros');
+      if(!tb) return;
+
+      tb.innerHTML = '';
+      datos.forEach(d => {
+        const valor = d.ultima_medicion ? parseFloat(d.ultima_medicion).toFixed(2) : 'Sin datos';
+        tb.innerHTML += `
+          <tr>
+            <td class="fw-bold">${d.parametro}</td>
+            <td>${d.unidad}</td>
+            <td>${d.origen === 'simulado' ? 'Simulado · Python' : 'Real · Sensor físico'}</td>
+            <td class="${d.ultima_medicion ? 'text-success fw-bold' : 'text-muted'}">${valor}</td>
+          </tr>
+        `;
+      });
+    } catch (e) { console.error(e); }
   }
 
   init();

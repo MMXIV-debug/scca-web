@@ -1,13 +1,11 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const token = localStorage.getItem('token');
   
-  // Si no hay token, lo devolvemos al login
   if (!token) {
     window.location.href = '/';
     return;
   }
 
-  // Configurar botón de salir
   document.getElementById('btn-salir').addEventListener('click', () => {
     localStorage.removeItem('token');
     window.location.href = '/';
@@ -41,8 +39,81 @@ document.addEventListener('DOMContentLoaded', async () => {
     mostrar(location.hash || '#seccion-resumen', false);
   }
 
+  const H = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
 
-  // Validar sesión con el backend
+  async function cargarResumen() {
+    try {
+      const r = await fetch('/api/visualizador/resumen', { headers: H });
+      if (!r.ok) return;
+      const datos = await r.json();
+
+      document.getElementById('kpi-sitios-definidos').textContent = datos.sitios_definidos;
+      document.getElementById('kpi-nodos-ubicados').textContent = datos.nodos_ubicados;
+      
+      const kpiIca = document.getElementById('kpi-mediciones-ica');
+      kpiIca.innerHTML = `<span class="badge bg-${datos.ica_color} p-2" style="font-size: 0.95em;">${datos.ica_estado}</span>`;
+
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function cargarSitios() {
+    try {
+      const r = await fetch('/api/admin/sitios-fuentes', { headers: H });
+      if (!r.ok) return;
+      const datos = await r.json();
+      
+      const badge = document.getElementById('badge-sitios');
+      if(badge) badge.textContent = `${datos.length} nodos ubicados`;
+      
+      const tb = document.getElementById('filas-sitios'); 
+      if(!tb) return;
+      
+      tb.innerHTML = '';
+      if(datos.length === 0) {
+        tb.innerHTML = '<tr><td colspan="5" class="text-center">No hay nodos definidos todavía.</td></tr>';
+        return;
+      }
+
+      datos.forEach(d => {
+        tb.innerHTML += `
+          <tr>
+            <td class="fw-bold">${d.sitio}</td>
+            <td>Lat: ${d.latitud}, Lon: ${d.longitud}</td>
+            <td>${d.nodo || '—'}</td>
+            <td>${d.origen === 'simulado' ? 'Simulado · Python' : 'Real'}</td>
+            <td><span class="badge bg-success-subtle text-success">${d.estado}</span></td>
+          </tr>
+        `;
+      });
+    } catch (e) { console.error(e); }
+  }
+
+  async function cargarParametros() {
+    try {
+      const r = await fetch('/api/admin/parametros', { headers: H });
+      if (!r.ok) return;
+      const datos = await r.json();
+      
+      const tb = document.getElementById('filas-parametros');
+      if(!tb) return;
+
+      tb.innerHTML = '';
+      datos.forEach(d => {
+        const valor = d.ultima_medicion ? parseFloat(d.ultima_medicion).toFixed(2) : 'Sin datos';
+        tb.innerHTML += `
+          <tr>
+            <td class="fw-bold">${d.parametro}</td>
+            <td>${d.unidad}</td>
+            <td>${d.origen === 'simulado' ? 'Simulado · Python' : 'Real · Sensor físico'}</td>
+            <td class="${d.ultima_medicion ? 'text-success fw-bold' : 'text-muted'}">${valor}</td>
+          </tr>
+        `;
+      });
+    } catch (e) { console.error(e); }
+  }
+
   try {
     const r = await fetch('/api/me', {
       headers: { 'Authorization': 'Bearer ' + token }
@@ -54,13 +125,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const me = await r.json();
     
-    // Si es Administrador, lo mandamos a su panel
     if (me.rol === 'Administrador') {
       window.location.href = '/dashboard.html';
       return;
     }
 
-    // Por seguridad, confirmamos que su rol exacto sea Visualizador
     if (me.rol !== 'Visualizador') {
       alert('Rol no autorizado para esta vista.');
       localStorage.removeItem('token');
@@ -68,9 +137,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    // Mostrar el nombre del visualizador en pantalla
     document.getElementById('nombre-usuario').textContent = me.nombre;
+    
     configurarNavegacion();
+    
+    // Cargar todos los datos
+    cargarResumen();
+    cargarSitios();
+    cargarParametros();
 
   } catch (err) {
     console.error(err);
