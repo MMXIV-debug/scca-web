@@ -99,6 +99,7 @@ app.get('/api/me', auth, (req, res) => res.json(req.user));
 // ---------- Métricas Operativas ----------
 app.get('/api/admin/metricas-monitoreo', auth, soloAdmin, async (req, res) => {
   try {
+    // Cuenta cada nodo activo una vez, aunque tenga varios sensores reales.
     const nodosQuery = await pool.query(`
       SELECT 
         COUNT(DISTINCT n.id)::int AS nodos_activos,
@@ -108,6 +109,7 @@ app.get('/api/admin/metricas-monitoreo', auth, soloAdmin, async (req, res) => {
       WHERE n.estado = 'activo'
     `);
 
+    // Cuenta los sensores simulados activos y sus lecturas de la última hora.
     const simulacionesQuery = await pool.query(`
       SELECT 
         COUNT(DISTINCT s.id)::int AS sensores_simulados,
