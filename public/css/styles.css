@@ -186,6 +186,7 @@ body.dashboard-body {
   color: var(--verde);
 }
 
+/* Destaca en el menú la sección que está abierta. */
 .sidebar-link.active {
   background-color: var(--verde);
   color: var(--dorado-cl);
@@ -377,6 +378,7 @@ body.dashboard-body {
   scroll-padding-top: 1rem;
 }
 
+/* En pantallas pequeñas, el encabezado distribuye sus controles en varias filas. */
 @media (max-width: 767.98px) {
   .dashboard-body .header-scca > .container-fluid {
     align-items: stretch !important;
