@@ -11,10 +11,12 @@ class Database {
     return Database.instance;
   }
 
+  // El pool elige una conexión para ejecutar una consulta independiente.
   async query(text, params) {
     return this.pool.query(text, params);
   }
 
+  // Reserva una conexión para operaciones que deben compartir una transacción.
   async connect() {
     return this.pool.connect();
   }
