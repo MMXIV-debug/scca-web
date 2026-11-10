@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 window.cargarTodo = async function() {
+    // Carga los datos de las secciones en paralelo al abrir el panel.
     await Promise.all([
       cargarSolicitudes(), 
       cargarUsuarios(), 
@@ -295,6 +296,7 @@ window.cargarTodo = async function() {
       history.pushState(null, '', hash);
       mostrar(hash);
     }));
+    // Actualiza la sección visible al avanzar o retroceder en el historial.
     window.addEventListener('hashchange', () => mostrar(location.hash || '#seccion-resumen'));
     mostrar(location.hash || '#seccion-resumen', false);
   }
