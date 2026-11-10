@@ -21,6 +21,7 @@ def conectar_db():
         print(f"Error BD: {e}")
         return None
 
+# Consulta en Open-Meteo las concentraciones actuales para la ubicación configurada.
 def obtener_datos_reales():
     # Agregamos 'carbon_monoxide' a la consulta de la API
     url = f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={LATITUD}&longitude={LONGITUD}&current=pm10,pm2_5,carbon_monoxide"
@@ -74,6 +75,7 @@ def insertar_lecturas(conexion):
             ))
             print(f"Guardado {nombre}: {data['valor']} µg/m3")
 
+        # Confirma el lote de lecturas cuando terminan las inserciones.
         conexion.commit()
         cursor.close()
         print(f"[{medido_en.strftime('%H:%M:%S')}] Datos reales guardados\n")
