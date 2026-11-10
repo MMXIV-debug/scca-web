@@ -108,6 +108,7 @@ app.get('/api/admin/metricas-monitoreo', auth, soloAdmin, async (req, res) => {
       WHERE n.estado = 'activo'
     `);
 
+    // Cuenta los sensores simulados activos y sus lecturas de la última hora.
     const simulacionesQuery = await pool.query(`
       SELECT 
         COUNT(DISTINCT s.id)::int AS sensores_simulados,
@@ -326,6 +327,7 @@ app.get('/api/visualizador/resumen', auth, async (req, res) => {
     const sitiosQuery = await pool.query('SELECT COUNT(*) AS total FROM sitio');
     const nodosQuery = await pool.query("SELECT COUNT(*) AS total FROM nodo WHERE estado = 'activo'");
     
+    // Recupera las mediciones que comparten la fecha más reciente de la tabla.
     const medicionesQuery = await pool.query(`
       SELECT v.codigo, l.valor
       FROM lectura_original l
