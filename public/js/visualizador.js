@@ -42,21 +42,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   const H = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
 
   async function cargarResumen() {
-    try {
-      const r = await fetch('/api/visualizador/resumen', { headers: H });
-      if (!r.ok) return;
-      const datos = await r.json();
+      try {
+        const r = await fetch('/api/visualizador/resumen', { headers: H });
+        if (!r.ok) return;
+        const datos = await r.json();
 
-      document.getElementById('kpi-sitios-definidos').textContent = datos.sitios_definidos;
-      document.getElementById('kpi-nodos-ubicados').textContent = datos.nodos_ubicados;
-      
-      const kpiIca = document.getElementById('kpi-mediciones-ica');
-      kpiIca.innerHTML = `<span class="badge bg-${datos.ica_color} p-2" style="font-size: 0.95em;">${datos.ica_estado}</span>`;
+        document.getElementById('kpi-sitios-definidos').textContent = datos.sitios_definidos;
+        document.getElementById('kpi-nodos-ubicados').textContent = datos.nodos_ubicados;
+        
+        const kpiIca = document.getElementById('kpi-mediciones-ica');
+        // Ahora mostramos el Número AQI y la Etiqueta oficial
+        if (datos.ica_score !== '-') {
+          kpiIca.innerHTML = `
+            <div class="d-flex align-items-center gap-2">
+              <span class="fs-4 fw-bold">${datos.ica_score} AQI</span>
+              <span class="badge bg-${datos.ica_color} p-2" style="font-size: 0.95em;">${datos.ica_estado}</span>
+            </div>
+          `;
+        } else {
+          kpiIca.innerHTML = `<span class="badge bg-secondary p-2">Sin datos</span>`;
+        }
 
-    } catch (e) {
-      console.error(e);
+      } catch (e) {
+        console.error(e);
+      }
     }
-  }
 
   async function cargarSitios() {
     try {
