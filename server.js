@@ -275,7 +275,7 @@ app.get('/api/admin/sitios-fuentes', auth, async (req, res) => {
 
 app.get('/api/admin/parametros', auth, async (req, res) => {
   try {
-    const { rows } = await pool.query(`SELECT v.nombre AS parametro, u.simbolo AS unidad, s.origen, s.modelo, (SELECT valor FROM lectura_original l WHERE l.variable_id = v.id ORDER BY medido_en DESC LIMIT 1) AS ultima_medicion FROM variable v JOIN unidad u ON v.unidad_id = u.id JOIN sensor_variable sv ON sv.variable_id = v.id JOIN sensor s ON s.id = sv.sensor_id`);
+    const { rows } = await pool.query(`SELECT v.nombre AS parametro, u.simbolo AS unidad, s.origen, s.modelo, (SELECT valor FROM lectura_original l WHERE l.sensor_id = s.id AND l.variable_id = v.id ORDER BY l.medido_en DESC, l.id DESC LIMIT 1) AS ultima_medicion FROM variable v JOIN unidad u ON v.unidad_id = u.id JOIN sensor_variable sv ON sv.variable_id = v.id JOIN sensor s ON s.id = sv.sensor_id`);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: 'Error cargando parámetros' }); }
 });

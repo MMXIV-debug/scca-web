@@ -75,7 +75,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const datos = await r.json();
       
       const badge = document.getElementById('badge-sitios');
-      if(badge) badge.textContent = `${datos.length} nodos ubicados`;
+      if (badge) {
+        const nodos = new Set(datos.map(fila => fila.nodo).filter(Boolean));
+        badge.textContent = nodos.size === 1 ? '1 nodo ubicado' : `${nodos.size} nodos ubicados`;
+      }
       
       const tb = document.getElementById('filas-sitios'); 
       if(!tb) return;
@@ -92,7 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <td class="fw-bold">${d.sitio}</td>
             <td>Lat: ${d.latitud}, Lon: ${d.longitud}</td>
             <td>${d.nodo || '—'}</td>
-            <td>${d.origen === 'simulado' ? 'Simulado · Python' : 'Real'}</td>
+            <td>${d.origen === 'simulado' ? 'Simulado' : 'Real'}</td>
             <td><span class="badge bg-success-subtle text-success">${d.estado}</span></td>
           </tr>
         `;
@@ -116,7 +119,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <tr>
             <td class="fw-bold">${d.parametro}</td>
             <td>${d.unidad}</td>
-            <td>${d.origen === 'simulado' ? 'Simulado · Python' : 'Real · Sensor físico'}</td>
+            <td>${d.origen === 'simulado' ? 'Simulado' : 'Real · Sensor físico'}</td>
             <td class="${d.ultima_medicion ? 'text-success fw-bold' : 'text-muted'}">${valor}</td>
           </tr>
         `;
