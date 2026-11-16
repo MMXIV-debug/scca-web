@@ -3,12 +3,46 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+// Dependencias de Swagger
+const swaggerUi = require('swagger-ui-express');
+const swaggerJsDoc = require('swagger-jsdoc');
+
 const app = express();
 const pool = require('./db/database');
 const UsuarioService = require('./services/usuarioService'); // Aca se importa el facade que encapsula la lógica de negocio para usuarios
 
 app.use(express.json());
 app.use(express.static('public'));
+
+// ---------- Configuración de Swagger ----------
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'API SCCA-WEB',
+      version: '1.0.0',
+      description: 'Documentación de la API REST para el Sistema de Captura y Calidad del Aire'
+    },
+    servers: [
+      { url: `http://localhost:${process.env.PORT || 3000}` }
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description: 'Introduce tu token JWT aquí (sin la palabra Bearer)'
+        }
+      }
+    }
+  },
+  apis: ['./server.js'], // Apunta a este mismo archivo para leer los comentarios
+};
+
+const swaggerDocs = swaggerJsDoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+// ----------------------------------------------
 
 // ---------- Middlewares ----------
 function auth(req, res, next) {
@@ -45,6 +79,33 @@ function calcularAQI_EPA(pm25) {
   return { score: '> 500', label: 'Peligrosa (Fuera de escala)', color: 'dark' };
 }
 
+/**
+ * @swagger
+ * /api/register:
+ *   post:
+ *     summary: Registra un nuevo usuario en estado pendiente
+ *     tags: [Autenticación]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username: { type: string, example: "nuevo_admin" }
+ *               nombre_completo: { type: string, example: "Juan Pérez" }
+ *               email: { type: string, example: "juan@scca.local" }
+ *               password: { type: string, example: "secreta123" }
+ *               rol_solicitado: { type: string, example: "Administrador" }
+ *     responses:
+ *       200:
+ *         description: Solicitud enviada correctamente
+ *       400:
+ *         description: Datos incompletos o rol inválido
+ *       409:
+ *         description: El usuario o email ya existe
+ */
+
 // ---------- Autenticación y Perfil ----------
 app.post('/api/register', async (req, res) => {
   const { username, nombre_completo, email, password, rol_solicitado } = req.body;
@@ -64,6 +125,32 @@ app.post('/api/register', async (req, res) => {
     res.status(500).json({ error: 'Error del servidor' });
   }
 });
+
+
+/**
+ * @swagger
+ * /api/login:
+ *   post:
+ *     summary: Inicia sesión y devuelve un token JWT
+ *     tags: [Autenticación]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username: { type: string, example: "admin" }
+ *               password: { type: string, example: "Cambiar" }
+ *     responses:
+ *       200:
+ *         description: Autenticación exitosa
+ *       401:
+ *         description: Credenciales incorrectas
+ *       403:
+ *         description: Cuenta pendiente, rechazada o inhabilitada
+ */
+
 
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
@@ -99,6 +186,23 @@ app.get('/api/admin/solicitudes', auth, soloAdmin, async (req, res) => {
     res.status(500).json({ error: 'Error al obtener solicitudes' });
   }
 });
+
+/**
+ * @swagger
+ * /api/admin/usuarios:
+ *   get:
+ *     summary: Obtiene la lista de usuarios activos e inactivos (Solo Administradores)
+ *     tags: [Administración]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de usuarios obtenida exitosamente
+ *       401:
+ *         description: Sesión inválida o token faltante
+ *       403:
+ *         description: Acceso denegado (No es administrador)
+ */
 
 app.get('/api/admin/usuarios', auth, soloAdmin, async (req, res) => {
   try {
