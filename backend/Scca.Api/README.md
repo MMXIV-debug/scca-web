@@ -1,0 +1,23 @@
+# API SCCA (.NET 10)
+
+API inicial con Swagger UI y conexion a PostgreSQL mediante Npgsql.
+`GET /api/estado` ejecuta `SELECT 1` y confirma que la base responde.
+La recepcion IoT y la integracion con FastAPI/ML estan pendientes.
+WeatherForecast es el ejemplo de la plantilla, no un modelo ambiental.
+
+## Ejecutar en desarrollo
+
+Desde esta carpeta, configurar la conexion local (reemplazar los valores):
+
+```powershell
+dotnet user-secrets set "ConnectionStrings:Postgres" "Host=localhost;Port=5432;Database=sistema_calidad_aire;Username=USUARIO;Password=CONTRASENA"
+dotnet build
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+dotnet run --no-launch-profile --urls "http://localhost:5051"
+```
+
+Abrir http://localhost:5051/swagger y ejecutar GET /api/estado.
+La respuesta esperada es HTTP 200 con api=disponible y postgresql=conectado.
+La base debe existir previamente; la API no crea ni migra tablas.
+Guardar las credenciales en User Secrets, no en archivos versionados.
+Detener con Ctrl+C antes de recompilar para evitar bloquear el ejecutable.
