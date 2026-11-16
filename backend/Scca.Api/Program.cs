@@ -17,6 +17,14 @@ var connectionString =
 builder.Services.AddSingleton(
     NpgsqlDataSource.Create(connectionString));
 
+// Conectar la API .NET con el servicio interno del modelo ML.
+builder.Services.AddHttpClient("ModeloMl", client =>
+{
+    var url = builder.Configuration["Ml:BaseUrl"] ?? "http://127.0.0.1:8000/";
+    client.BaseAddress = new Uri(url.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

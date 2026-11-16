@@ -1,16 +1,25 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import joblib
+import logging
+from pathlib import Path
+from integracion_iot import crear_router, evaluar
 import pandas as pd
 
 app = FastAPI(title="SCCA - ML Inference Service")
 
+detector = None
+forecaster = None
+carpeta_modelos = Path(__file__).resolve().parent / "modelos_guardados"
+
 # Cargar los modelos pre-entrenados al arrancar el servidor
-try:
-    detector = joblib.load('modelos_guardados/detector_anomalias.joblib')
-    forecaster = joblib.load('modelos_guardados/forecaster.joblib')
-except FileNotFoundError:
-    print("Advertencia: No se encontraron modelos. Ejecuta entrenador.py primero.")
+for nombre, archivo in (("detector", "detector_anomalias.joblib"), ("forecaster", "forecaster.joblib")):
+    try:
+        globals()[nombre] = joblib.load(carpeta_modelos / archivo)
+    except Exception:
+        logging.exception("No se pudo cargar el modelo %s", nombre)
+
+app.include_router(crear_router(lambda: detector))
 
 # Estructura de datos esperada
 class LecturaSensor(BaseModel):
@@ -22,8 +31,7 @@ def detectar_anomalia(lectura: LecturaSensor):
     Recibe un valor en tiempo real y evalúa si es anómalo.
     Devuelve 1 (Normal) o -1 (Anomalía).
     """
-    prediccion = detector.predict([[lectura.valor_pm25]])
-    es_anomalia = bool(prediccion[0] == -1)
+    es_anomalia = evaluar(detector, {"PM25": lectura.valor_pm25})
     
     return {
         "valor_recibido": lectura.valor_pm25,
@@ -37,6 +45,10 @@ def predecir_futuro(lectura: LecturaSensor):
     En base a la lectura actual, predice cuál será el valor en la próxima hora.
     (Y lanza una alerta temprana si se prevé que cruce umbrales peligrosos).
     """
+    if forecaster is None:
+        raise HTTPException(503, "El modelo de pronóstico no está disponible.")
+    if list(getattr(forecaster, "feature_names_in_", [])) != ["valor_anterior"]:
+        raise HTTPException(422, "Este modelo requiere otras variables de entrada; el pronóstico univariante no es compatible.")
     # XGBoost espera un DataFrame con el nombre de la columna (valor_anterior)
     X_entrada = pd.DataFrame([{'valor_anterior': lectura.valor_pm25}])
     valor_predicho = float(forecaster.predict(X_entrada)[0])
