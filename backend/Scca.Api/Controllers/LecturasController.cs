@@ -73,11 +73,13 @@ public sealed class LecturasController(
                 command.Parameters.AddWithValue("sensor", muestra.SensorId);
                 await command.ExecuteNonQueryAsync(cancellationToken);
             }
-            await using (var command = new NpgsqlCommand("SELECT activo FROM public.sensor WHERE id = @sensor FOR SHARE", connection, transaction))
+            bool esDht11Real;
+            await using (var command = new NpgsqlCommand("SELECT (origen = 'real' AND modelo = 'DHT11') FROM public.sensor WHERE id = @sensor AND activo FOR SHARE", connection, transaction))
             {
                 command.Parameters.AddWithValue("sensor", muestra.SensorId);
-                if (await command.ExecuteScalarAsync(cancellationToken) is not true)
+                if (await command.ExecuteScalarAsync(cancellationToken) is not bool dht11)
                     return BadRequest(new { error = "El sensor no existe o está inactivo." });
+                esDht11Real = dht11;
             }
             await using (var command = new NpgsqlCommand("""
                 SELECT EXISTS(SELECT 1 FROM public.lectura_original WHERE sensor_id=@sensor AND id_muestra=@muestra)
@@ -109,18 +111,32 @@ public sealed class LecturasController(
                 ids.Add(lectura.VariableCodigo, variableId);
             }
 
-            var valores = muestra.Lecturas.ToDictionary(l => l.VariableCodigo, l => l.Valor);
-            using var response = await clients.CreateClient("ModeloMl").PostAsJsonAsync(
-                "api/predict/muestra", new { valores }, cancellationToken);
-            if (response.StatusCode == HttpStatusCode.UnprocessableEntity)
-                return UnprocessableEntity(new { error = "La muestra no contiene las variables requeridas por el modelo. Consulta /api/modelo." });
-            if (!response.IsSuccessStatusCode)
-                return Problem(statusCode: 503, title: "El modelo ML no está disponible. La muestra no se guardó; puedes reintentar.");
-            using var result = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-            if (!result.RootElement.TryGetProperty("es_anomalia", out var anomaly)
-                || anomaly.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
-                return Problem(statusCode: 502, title: "El modelo devolvió una respuesta inválida. La muestra no se guardó.");
-            var esAnomalia = anomaly.GetBoolean();
+            bool esAnomalia = false;
+            if (esDht11Real)
+            {
+                if (muestra.Lecturas.Any(l => l.VariableCodigo switch
+                    {
+                        "TEMP" => l.Valor > 50,
+                        "HUM" => l.Valor > 100,
+                        _ => true
+                    }))
+                    return BadRequest(new { error = "El DHT11 admite TEMP (0 a 50 °C) y HUM (0 a 100 %)." });
+            }
+            else
+            {
+                var valores = muestra.Lecturas.ToDictionary(l => l.VariableCodigo, l => l.Valor);
+                using var response = await clients.CreateClient("ModeloMl").PostAsJsonAsync(
+                    "api/predict/muestra", new { valores }, cancellationToken);
+                if (response.StatusCode == HttpStatusCode.UnprocessableEntity)
+                    return UnprocessableEntity(new { error = "La muestra no contiene las variables requeridas por el modelo. Consulta /api/modelo." });
+                if (!response.IsSuccessStatusCode)
+                    return Problem(statusCode: 503, title: "El modelo ML no está disponible. La muestra no se guardó; puedes reintentar.");
+                using var result = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+                if (!result.RootElement.TryGetProperty("es_anomalia", out var anomaly)
+                    || anomaly.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                    return Problem(statusCode: 502, title: "El modelo devolvió una respuesta inválida. La muestra no se guardó.");
+                esAnomalia = anomaly.GetBoolean();
+            }
             var idsGuardados = new List<long>();
             if (esAnomalia)
             {
