@@ -4,12 +4,16 @@ Sistema de Monitoreo y Corrección de Calidad del Aire. Versión recibida el 16/
 
 ## Aplicación web
 
-Requiere Node.js, npm y una base PostgreSQL preparada para el proyecto.
+Requiere Node.js (con fetch integrado), npm, .NET 10 SDK, PostgreSQL iniciado y el entorno Python .venv con requirements.txt instalado.
 
 ```powershell
 npm ci
 npm start
 ```
+
+Con doble clic en "Iniciar SCCA.cmd" o ejecutando npm start se compila la API, se inicia Python/ML, se inicia la API y se abre la web cuando todos responden. En PowerShell, si npm.ps1 está bloqueado, ejecutar npm.cmd start o node iniciar.js. Mantener la ventana abierta y usar Ctrl+C para detener los procesos. Si hay una ejecución anterior ocupando los puertos, cerrarla primero. PostgreSQL debe estar funcionando antes de iniciar. Para arrancar únicamente la web, usar npm run start:web.
+
+Configurar IOT_API_KEY en .env con la misma API_KEY del ESP32. Los puertos predeterminados son PORT=3000, API_PORT=5051 y ML_PORT=8000. Al cambiar API_PORT, actualizar también la URL del ESP32. Para omitir la apertura del navegador, usar npm start -- --sin-navegador.
 
 Abrir http://localhost:3000 (o el puerto configurado). El archivo `.env` contiene `DATABASE_URL`, `JWT_SECRET` y, opcionalmente, `PORT`. Se conserva versionado por decisión del equipo para este repositorio privado. `.env.example` muestra las variables sin credenciales reales.
 
