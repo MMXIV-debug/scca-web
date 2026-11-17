@@ -29,8 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
       quienEl.textContent = `${me.nombre} (${me.rol})`;
 
       if (me.rol !== 'Administrador') {
-        alert('Acceso restringido: debes ser Administrador.');
-        return salir();
+        window.location.href = '/visualizador.html';
+        return;
       }
 
       await cargarTodo();
@@ -75,11 +75,13 @@ window.cargarTodo = async function() {
       lista.forEach(s => {
         const tr = document.createElement('tr');
 
-        tr.innerHTML = `
-          <td class="fw-bold">${s.username}</td>
-          <td>${s.nombre_completo}</td>
-          <td><span class="badge bg-light text-dark border">${s.rol_solicitado}</span></td>
-        `;
+        agregarCelda(tr, s.username, 'fw-bold');
+        agregarCelda(tr, s.nombre_completo);
+        const tdRol = agregarCelda(tr, '');
+        const badge = document.createElement('span');
+        badge.className = 'badge bg-light text-dark border';
+        badge.textContent = s.rol_solicitado;
+        tdRol.appendChild(badge);
 
         const tdSel = document.createElement('td');
         const sel = document.createElement('select');
@@ -115,6 +117,69 @@ window.cargarTodo = async function() {
     }
   }
 
+  function agregarCelda(fila, texto, clase = '') {
+    const celda = document.createElement('td');
+    celda.className = clase;
+    celda.textContent = texto;
+    fila.appendChild(celda);
+    return celda;
+  }
+
+  function agregarRol(fila, usuario) {
+    const celda = agregarCelda(fila, '');
+    const badge = document.createElement('span');
+    badge.className = 'badge-rol ' + (usuario.rol === 'Administrador' ? 'badge-admin' : 'badge-vis');
+    badge.textContent = usuario.rol;
+    celda.appendChild(badge);
+    if (usuario.admin_principal || usuario.administrador_desde) {
+      const detalle = document.createElement('small');
+      detalle.className = 'd-block text-muted mt-1';
+      detalle.textContent = usuario.admin_principal ? 'Principal' :
+        'Desde ' + new Date(usuario.administrador_desde).toLocaleDateString('es-BO');
+      celda.appendChild(detalle);
+    }
+    if (!usuario.puede_cambiar_rol) return;
+
+    const controles = document.createElement('div');
+    controles.className = 'd-flex flex-wrap align-items-center gap-2 mt-2';
+    const selector = document.createElement('select');
+    selector.className = 'form-select form-select-sm selector-rol';
+    selector.setAttribute('aria-label', 'Cambiar rol de ' + usuario.username);
+    ['Visualizador', 'Administrador'].forEach(rol => {
+      selector.add(new Option(rol, rol, false, rol === usuario.rol));
+    });
+    const guardar = document.createElement('button');
+    guardar.type = 'button';
+    guardar.className = 'btn-aprobar';
+    guardar.textContent = 'Guardar';
+    guardar.setAttribute('aria-label', 'Guardar rol de ' + usuario.username);
+    guardar.disabled = true;
+    selector.onchange = () => { guardar.disabled = selector.value === usuario.rol; };
+    guardar.onclick = async () => {
+      if (!confirm(`¿Cambiar el rol de "${usuario.username}" a ${selector.value}?`)) return;
+      selector.disabled = true;
+      guardar.disabled = true;
+      try {
+        const r = await fetch(`/api/admin/usuarios/${usuario.id}/rol`, {
+          method: 'PATCH', headers: H, body: JSON.stringify({ rol: selector.value })
+        });
+        const datos = await r.json();
+        if (!r.ok) {
+          if (r.status === 401) return salir();
+          alert(datos.error || 'No se pudo cambiar el rol');
+        }
+        await cargarTodo();
+      } catch {
+        alert('No se pudo conectar con el servidor');
+      } finally {
+        selector.disabled = false;
+        guardar.disabled = selector.value === usuario.rol;
+      }
+    };
+    controles.append(selector, guardar);
+    celda.appendChild(controles);
+  }
+
   // 2. Usuarios activos e inactivos separados
   async function cargarUsuarios() {
     try {
@@ -140,20 +205,23 @@ window.cargarTodo = async function() {
         nadaActivos.classList.add('d-none');
         activos.forEach(u => {
           const tr = document.createElement('tr');
-          const rolBadge = u.rol === 'Administrador' ? 'badge-admin' : 'badge-vis';
-
-          tr.innerHTML = `
-            <td class="fw-bold">${u.username}</td>
-            <td>${u.nombre_completo}</td>
-            <td class="text-muted small">${u.email || '—'}</td>
-            <td><span class="badge-rol ${rolBadge}">${u.rol}</span></td>
-            <td><span class="badge bg-success-subtle text-success border border-success-subtle">Activo</span></td>
-            <td class="text-end">
-              <button class="btn-inhabilitar" onclick="inhabilitarUsuario(${u.id}, '${u.username}')">
-                Inhabilitar
-              </button>
-            </td>
-          `;
+          agregarCelda(tr, u.username, 'fw-bold');
+          agregarCelda(tr, u.nombre_completo);
+          agregarCelda(tr, u.email || '—', 'text-muted small');
+          agregarRol(tr, u);
+          const estado = agregarCelda(tr, '');
+          estado.innerHTML = '<span class="badge bg-success-subtle text-success border border-success-subtle">Activo</span>';
+          const acciones = agregarCelda(tr, '', 'text-end');
+          if (u.puede_inhabilitar) {
+            const boton = document.createElement('button');
+            boton.className = 'btn-inhabilitar';
+            boton.textContent = 'Inhabilitar';
+            boton.onclick = () => inhabilitarUsuario(u.id, u.username);
+            acciones.appendChild(boton);
+          } else {
+            acciones.classList.add('text-muted', 'small');
+            acciones.textContent = u.motivo_proteccion || 'Sin permiso';
+          }
           tbActivos.appendChild(tr);
         });
       }
@@ -172,18 +240,23 @@ window.cargarTodo = async function() {
         nadaInactivos.classList.add('d-none');
         inactivos.forEach(u => {
           const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td class="fw-semibold text-secondary text-decoration-line-through">${u.username}</td>
-            <td>${u.nombre_completo}</td>
-            <td class="small">${u.email || '—'}</td>
-            <td><span class="badge bg-light text-secondary border">${u.rol}</span></td>
-            <td><span class="badge bg-danger-subtle text-danger border border-danger-subtle">Inactivo</span></td>
-            <td class="text-end">
-              <button class="btn-reactivar" onclick="reactivarUsuario(${u.id})">
-                Reactivar
-              </button>
-            </td>
-          `;
+          agregarCelda(tr, u.username, 'fw-semibold text-secondary text-decoration-line-through');
+          agregarCelda(tr, u.nombre_completo);
+          agregarCelda(tr, u.email || '—', 'small');
+          agregarRol(tr, u);
+          const estado = agregarCelda(tr, '');
+          estado.innerHTML = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle">Inactivo</span>';
+          const acciones = agregarCelda(tr, '', 'text-end');
+          if (u.puede_reactivar) {
+            const boton = document.createElement('button');
+            boton.className = 'btn-reactivar';
+            boton.textContent = 'Reactivar';
+            boton.onclick = () => reactivarUsuario(u.id);
+            acciones.appendChild(boton);
+          } else {
+            acciones.classList.add('text-muted', 'small');
+            acciones.textContent = u.motivo_proteccion || 'Sin permiso';
+          }
           tbInactivos.appendChild(tr);
         });
       }
@@ -224,11 +297,13 @@ window.cargarTodo = async function() {
 
   async function resolver(id, accion, body) {
     try {
-      await fetch(`/api/admin/solicitudes/${id}/${accion}`, {
+      const r = await fetch(`/api/admin/solicitudes/${id}/${accion}`, {
         method: 'POST',
         headers: H,
         body: JSON.stringify(body)
       });
+      const datos = await r.json();
+      if (!r.ok) return alert(datos.error || 'No se pudo resolver la solicitud');
       cargarTodo();
     } catch (e) {
       console.error(e);

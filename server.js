@@ -45,13 +45,28 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 // ----------------------------------------------
 
 // ---------- Middlewares ----------
-function auth(req, res, next) {
+async function auth(req, res, next) {
   const token = (req.headers.authorization || '').replace('Bearer ', '');
+  let sesion;
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    sesion = jwt.verify(token, process.env.JWT_SECRET);
+    if (!Number.isSafeInteger(sesion.id) || sesion.id <= 0) throw new Error('Sesión inválida');
+  } catch {
+    return res.status(401).json({ error: 'Sesión inválida' });
+  }
+  try {
+    // Los permisos vigentes prevalecen sobre el rol guardado en el token.
+    const { rows } = await pool.query(
+      `SELECT u.id, u.nombre_completo AS nombre, r.nombre AS rol, u.admin_principal,
+              u.administrador_desde
+       FROM usuario u JOIN rol r ON r.id = u.rol_id
+       WHERE u.id = $1 AND u.activo AND u.estado = 'aprobado'`, [sesion.id]
+    );
+    if (!rows.length) return res.status(401).json({ error: 'La cuenta no tiene acceso activo' });
+    req.user = rows[0];
     next();
   } catch {
-    res.status(401).json({ error: 'Sesión inválida' });
+    res.status(503).json({ error: 'No se pudo verificar la sesión. Inténtalo de nuevo' });
   }
 }
 
@@ -206,55 +221,89 @@ app.get('/api/admin/solicitudes', auth, soloAdmin, async (req, res) => {
 
 app.get('/api/admin/usuarios', auth, soloAdmin, async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT u.id, u.username, u.nombre_completo, u.email, u.estado, u.activo, COALESCE(r.nombre, 'Sin asignar') AS rol
-       FROM usuario u LEFT JOIN rol r ON r.id = u.rol_id WHERE u.estado IN ('aprobado', 'inactivo') ORDER BY u.id ASC`
-    );
-    res.json(rows);
+    res.json(await UsuarioService.listar(req.user.id));
   } catch (e) {
     res.status(500).json({ error: 'Error al obtener usuarios' });
   }
 });
 
+function responderErrorUsuario(res, error) {
+  if (error.status) return res.status(error.status).json({ error: error.message });
+  res.status(500).json({ error: 'No se pudo actualizar la cuenta' });
+}
+
 app.post('/api/admin/solicitudes/:id/aprobar', auth, soloAdmin, async (req, res) => {
   try {
-    await UsuarioService.aprobar(+req.params.id, req.body.rol || null, req.user.id);
+    await UsuarioService.aprobar(Number(req.params.id), req.body?.rol ?? null, req.user.id);
     res.json({ ok: true });
-  } catch (e) {
-    if (e.message === 'NOT_FOUND') return res.status(404).json({ error: 'Solicitud no encontrada' });
-    res.status(500).json({ error: 'Error del servidor' });
-  }
+  } catch (e) { responderErrorUsuario(res, e); }
 });
 
 app.post('/api/admin/solicitudes/:id/rechazar', auth, soloAdmin, async (req, res) => {
   try {
-    await UsuarioService.rechazar(+req.params.id, req.user.id);
+    await UsuarioService.rechazar(Number(req.params.id), req.user.id);
     res.json({ ok: true });
-  } catch (e) {
-    if (e.message === 'NOT_FOUND') return res.status(404).json({ error: 'Solicitud no encontrada' });
-    res.status(500).json({ error: 'Error del servidor' });
-  }
+  } catch (e) { responderErrorUsuario(res, e); }
+});
+
+/**
+ * @swagger
+ * /api/admin/usuarios/{id}/rol:
+ *   patch:
+ *     summary: Cambia el rol respetando la antigüedad de los administradores
+ *     tags: [Administración]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [rol]
+ *             properties:
+ *               rol:
+ *                 type: string
+ *                 enum: [Administrador, Visualizador]
+ *     responses:
+ *       200:
+ *         description: Rol actualizado
+ *       400:
+ *         description: Rol o identificador inválido
+ *       401:
+ *         description: Sesión inválida
+ *       403:
+ *         description: Cuenta protegida o permisos insuficientes
+ *       404:
+ *         description: Usuario no encontrado
+ *       409:
+ *         description: Estado de cuenta incompatible o rol sin cambios
+ */
+app.patch('/api/admin/usuarios/:id/rol', auth, soloAdmin, async (req, res) => {
+  try {
+    await UsuarioService.cambiarRol(Number(req.params.id), req.body?.rol, req.user.id);
+    res.json({ ok: true, mensaje: 'Rol actualizado' });
+  } catch (e) { responderErrorUsuario(res, e); }
 });
 
 app.post('/api/admin/usuarios/:id/inhabilitar', auth, soloAdmin, async (req, res) => {
   try {
-    await UsuarioService.inhabilitar(+req.params.id, req.body.motivo || 'Inhabilitado por administrador', req.user.id);
+    await UsuarioService.inhabilitar(Number(req.params.id), req.body?.motivo ?? 'Inhabilitado por administrador', req.user.id);
     res.json({ ok: true, mensaje: 'Usuario inhabilitado' });
-  } catch (e) {
-    if (e.message === 'SELF_DISABLE') return res.status(400).json({ error: 'No puedes inhabilitar tu propia cuenta' });
-    if (e.message === 'NOT_FOUND') return res.status(404).json({ error: 'Usuario no encontrado o no aprobado' });
-    res.status(500).json({ error: 'Error del servidor' });
-  }
+  } catch (e) { responderErrorUsuario(res, e); }
 });
 
 app.post('/api/admin/usuarios/:id/reactivar', auth, soloAdmin, async (req, res) => {
   try {
-    await UsuarioService.reactivar(+req.params.id, req.user.id);
+    await UsuarioService.reactivar(Number(req.params.id), req.user.id);
     res.json({ ok: true, mensaje: 'Usuario reactivado' });
-  } catch (e) {
-    if (e.message === 'NOT_FOUND') return res.status(404).json({ error: 'Usuario inactivo no encontrado' });
-    res.status(500).json({ error: 'Error del servidor' });
-  }
+  } catch (e) { responderErrorUsuario(res, e); }
 });
 
 // ---------- Métricas y Dashboard ----------
