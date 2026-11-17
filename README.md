@@ -17,6 +17,8 @@ Configurar IOT_API_KEY en .env con la misma API_KEY del ESP32. Los puertos prede
 
 Abrir http://localhost:3000 (o el puerto configurado). El archivo `.env` contiene `DATABASE_URL`, `JWT_SECRET` y, opcionalmente, `PORT`. Se conserva versionado por decisión del equipo para este repositorio privado. `.env.example` muestra las variables sin credenciales reales.
 
+Antes de probar la versión con jerarquía de administradores, ejecutar una vez `db/03_jerarquia_admin.sql` sobre la base existente usando el propietario de las tablas. La migración agrega `admin_principal` y `administrador_desde`, y requiere una cuenta `admin` activa y aprobada. El iniciador comprueba la conexión a PostgreSQL, pero esta migración se aplica por separado.
+
 Los scripts de `db/` son referencias de la base de datos. Revisarlos antes de ejecutarlos: no importarlos automáticamente sobre una base existente.
 
 ## Componentes Python
