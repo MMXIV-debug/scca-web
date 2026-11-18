@@ -114,13 +114,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       tb.innerHTML = '';
       datos.forEach(d => {
-        const valor = d.ultima_medicion ? parseFloat(d.ultima_medicion).toFixed(2) : 'Sin datos';
+        const valor = d.ultima_medicion != null ? parseFloat(d.ultima_medicion).toFixed(2) : 'Sin datos';
         tb.innerHTML += `
           <tr>
             <td class="fw-bold">${d.parametro}</td>
             <td>${d.unidad}</td>
             <td>${d.origen === 'simulado' ? 'Simulado' : 'Real · Sensor físico'}</td>
-            <td class="${d.ultima_medicion ? 'text-success fw-bold' : 'text-muted'}">${valor}</td>
+            <td class="${d.ultima_medicion != null ? 'text-success fw-bold' : 'text-muted'}">${valor}<small class="d-block text-secondary">${d.ultima_fecha ? new Date(d.ultima_fecha).toLocaleString("es-BO", { timeZone: "America/La_Paz" }) : ""}</small></td>
           </tr>
         `;
       });
@@ -158,6 +158,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     cargarResumen();
     cargarSitios();
     cargarParametros();
+    let actualizando = false;
+    setInterval(async () => {
+      if (actualizando || document.hidden) return;
+      actualizando = true;
+      try {
+        await Promise.all([cargarResumen(), cargarSitios(), cargarParametros()]);
+      } finally {
+        actualizando = false;
+      }
+    }, 15000);
 
   } catch (err) {
     console.error(err);

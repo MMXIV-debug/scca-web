@@ -324,7 +324,7 @@ app.get('/api/admin/sitios-fuentes', auth, async (req, res) => {
 
 app.get('/api/admin/parametros', auth, async (req, res) => {
   try {
-    const { rows } = await pool.query(`SELECT v.nombre AS parametro, u.simbolo AS unidad, s.origen, s.modelo, (SELECT valor FROM lectura_original l WHERE l.sensor_id = s.id AND l.variable_id = v.id ORDER BY l.medido_en DESC, l.id DESC LIMIT 1) AS ultima_medicion FROM variable v JOIN unidad u ON v.unidad_id = u.id JOIN sensor_variable sv ON sv.variable_id = v.id JOIN sensor s ON s.id = sv.sensor_id`);
+    const { rows } = await pool.query(`SELECT v.nombre AS parametro, u.simbolo AS unidad, s.origen, s.modelo, (SELECT valor FROM lectura_original l WHERE l.sensor_id = s.id AND l.variable_id = v.id ORDER BY l.medido_en DESC, l.id DESC LIMIT 1) AS ultima_medicion, (SELECT medido_en FROM lectura_original l WHERE l.sensor_id = s.id AND l.variable_id = v.id ORDER BY l.medido_en DESC, l.id DESC LIMIT 1) AS ultima_fecha FROM variable v JOIN unidad u ON v.unidad_id = u.id JOIN sensor_variable sv ON sv.variable_id = v.id JOIN sensor s ON s.id = sv.sensor_id`);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: 'Error cargando parámetros' }); }
 });
@@ -333,7 +333,7 @@ app.get('/api/visualizador/resumen', auth, async (req, res) => {
   try {
     const sitiosQuery = await pool.query('SELECT COUNT(*) AS total FROM sitio');
     const nodosQuery = await pool.query("SELECT COUNT(*) AS total FROM nodo WHERE estado = 'activo'");
-    const medicionesQuery = await pool.query(`SELECT v.codigo, l.valor FROM lectura_original l JOIN variable v ON l.variable_id = v.id WHERE l.medido_en = (SELECT MAX(medido_en) FROM lectura_original)`);
+    const medicionesQuery = await pool.query(`SELECT v.codigo, l.valor FROM lectura_original l JOIN variable v ON l.variable_id = v.id WHERE v.codigo = 'PM25' ORDER BY l.medido_en DESC, l.id DESC LIMIT 1`);
 
     let ica = 'Sin datos', color = 'secondary', aqiScore = '-';
     if (medicionesQuery.rows.length > 0) {
