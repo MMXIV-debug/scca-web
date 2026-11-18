@@ -91,12 +91,21 @@ async function iniciar() {
     throw new Error('PostgreSQL no responde. Comprueba que esté iniciado y revisa DATABASE_URL.');
   } finally { await cliente.end(); }
 
+  const esquema = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 5000 });
+  try {
+    await esquema.connect();
+    await esquema.query('SELECT admin_principal, administrador_desde FROM usuario LIMIT 0');
+  } catch {
+    throw new Error('Falta preparar el esquema de usuarios. Revisa la conexión y aplica db/03_jerarquia_admin.sql con el propietario de las tablas.');
+  } finally { await esquema.end(); }
+
   const db = new URL(process.env.DATABASE_URL);
   const citar = texto => '"' + texto.replaceAll('"', '""') + '"';
   const conexion = `Host=${citar(db.hostname)};Port=${db.port || 5432};Database=${citar(decodeURIComponent(db.pathname.slice(1)))};Username=${citar(decodeURIComponent(db.username))};Password=${citar(decodeURIComponent(db.password))}`;
   const entorno = {
     ...process.env, PORT: String(web), ASPNETCORE_ENVIRONMENT: 'Development',
     ConnectionStrings__Postgres: process.env.ConnectionStrings__Postgres || conexion,
+    SIMULADOR_API_URL: `http://127.0.0.1:${api}/api/lecturas`,
     Iot__ApiKey: clave, Ml__BaseUrl: `http://127.0.0.1:${ml}/`
   };
   const salida = path.join(__dirname, 'backend/Scca.Api/bin/iniciador');
@@ -108,6 +117,10 @@ async function iniciar() {
   ejecutar('API', 'dotnet', [path.join(salida, 'Scca.Api.dll'), '--urls', `http://0.0.0.0:${api}`], entorno);
   await esperar(`http://127.0.0.1:${api}/api/estado`, async r => (await r.json()).postgresql === 'conectado');
   await esperar(`http://127.0.0.1:${api}/api/modelo`, async r => (await r.json()).disponible === true);
+  const pruebaSimulador = ejecutar('primera muestra del simulador', python, ['-u', 'python/simulador.py', '--una-vez'], entorno, false);
+  const [codigoSimulador] = await once(pruebaSimulador, 'exit');
+  if (codigoSimulador !== 0) throw new Error('El simulador no pudo guardar su primera muestra. Revisa los mensajes anteriores.');
+  ejecutar('simulador continuo', python, ['-u', 'python/simulador.py', '--esperar-primera'], entorno);
   ejecutar('página web', process.execPath, ['server.js'], entorno);
   await esperar(`http://127.0.0.1:${web}/`, async r => (await r.text()).toLowerCase().includes('<html'));
   const url = `http://localhost:${web}/`;
