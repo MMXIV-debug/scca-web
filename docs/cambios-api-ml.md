@@ -1,3 +1,17 @@
+# Estado actual para el responsable de API
+
+Actualización de revisión: 18/11/2026. Todas las entregas descritas abajo están publicadas en main hasta d0e6b59. Las secciones posteriores conservan la secuencia histórica; sus pendientes se interpretan según este resumen.
+
+- .NET: POST /api/modelo/evaluar; GET /api/modelo/resultados. X-Api-Key de servicio. guardarResultado opcional y deshabilitado por defecto. Entrada por sensor/hora cerrada, identidad desde BD.
+- Python interno: POST /api/v2/modelos/estado e /inferir. X-Api-Key, versión precondicional y perfiles; resultados de demostración, sin validación física.
+- Node, JWT y solo Administrador: /api/admin/ml/politicas, /modelos y /reportes; /api/admin/cuarentena y /decisiones; /api/admin/alertas, /comprobar y /:id/atender. Consultas, decisiones auditadas y monitor técnico optativo.
+- Migración04: dos tablas de resultados horarios demo. El usuario mostró una captura donde su compañero ya las creó; no se verificaron permisos completos de la cuenta de API en nube. El asistente no ejecutó SQL en nube.
+- Migración05: índice único de decisiones de cuarentena. Migración06: índice único de alertas técnicas. Probadas localmente; aplicación en nube pendiente de autorización.
+- Mantener escrituras deshabilitadas hasta preparar y aprobar el entorno: Ml__PersistenciaDemoHabilitada, CUARENTENA_REVISION_HABILITADA, ALERTAS_TECNICAS_HABILITADAS y ALERTAS_TECNICAS_AUTO. No compartir .env ni claves en frontend o Git.
+- Cuatro secciones administrativas publicadas: Políticas (consulta), Machine Learning (versiones usadas), Alertas técnicas y Reportes ML (historial/CSV de página). Cuarentena tiene pantalla propia.
+- Pendientes: edición/versionado de políticas desde UI, ejecución de entrenamiento desde panel, reentrenamiento semanal, alertas ambientales/predictivas, registro operacional completo, política de anomalías, validación independiente y pruebas visuales integradas. Las pestañas no significan que esas funciones estén terminadas.
+
+---
 # Bitácora de integración API ↔ ML
 
 Se actualiza por cada entrega. Distingue cambios aplicados de propuestas; no sustituye la revisión del responsable de API.
@@ -110,7 +124,7 @@ API-004 queda parcialmente resuelto: selección e inferencia del registro local 
 
 ## Entrega 4 — 18/11/2026: persistencia e historial de demostración
 
-**Cambios de esta entrega:** una propiedad opcional añadida al DTO existente (`guardarResultado`, false por defecto), una ruta GET nueva, un campo interno Python nuevo (`modelo_metadatos`), una migración aditiva de dos tablas y una opción de configuración. Código local, no publicado. Migración comprobada localmente, NO aplicada en nube.
+**Cambios de esta entrega:** una propiedad opcional añadida al DTO existente (`guardarResultado`, false por defecto), una ruta GET nueva, un campo interno Python nuevo (`modelo_metadatos`), una migración aditiva de dos tablas y una opción de configuración. Código publicado en main. Migración comprobada localmente, NO aplicada en nube.
 
 ### Aplicado API-007 — guardar resultado horario de demostración
 
@@ -136,7 +150,7 @@ Mensaje para el compañero: «Agregamos guardarResultado opcional en /api/modelo
 
 ## Entrega 5 — revisión de cuarentena (local)
 
-Balance: dos rutas Node nuevas, pantalla administrativa nueva, un índice adicional en auditoria_evento; cero tablas nuevas, cero cambios a .NET/firmware/ingesta. No aplicada a nube ni publicada todavía.
+Balance: dos rutas Node nuevas, pantalla administrativa nueva, un índice adicional en auditoria_evento; cero tablas nuevas, cero cambios a .NET/firmware/ingesta. Publicada en main; migración no aplicada por el asistente en nube.
 
 - GET /api/admin/cuarentena: filtros de estado y cursor por ID, solo Administrador con JWT vigente.
 - POST /api/admin/cuarentena/decisiones: ids como texto, accion restaurar/descartar y motivo obligatorio. Lotes atómicos de hasta 50, reintentos idempotentes y auditoría con administrador/fecha/IDs de lecturas restauradas. No se borra la muestra en cuarentena.
@@ -153,7 +167,7 @@ Tres rutas Node nuevas: GET /api/admin/alertas, POST /api/admin/alertas/comproba
 
 Migración 06_alertas_tecnicas.sql: solo índice único parcial en alerta para evitar duplicados de interrupciones. No tablas nuevas y no aplicación en nube. Usa auditoria_evento existente para creación, atención y resolución. Revisa cada sensor, no actividad global del nodo; cuarentena recibida también cuenta como comunicación. No modifica estado administrativo de nodo.
 
-Pantalla alertas.html/js con enlace admin; filtro, paginación, comprobación y atención con motivo. Alertas técnicas se resuelven por recepción restablecida o salida de supervisión. No implementa correo, banner visualizador, alertas EPA ni predicciones todavía. Guía docs/alertas-tecnicas.md. Pruebas locales de servicio/DB correctas; revisión visual pendiente. Esta entrega aún no publicada.
+Pantalla alertas.html/js con enlace admin; filtro, paginación, comprobación y atención con motivo. Alertas técnicas se resuelven por recepción restablecida o salida de supervisión. No implementa correo, banner visualizador, alertas EPA ni predicciones todavía. Guía docs/alertas-tecnicas.md. Pruebas locales de servicio/DB correctas; revisión visual pendiente. Esta entrega ya está publicada en main.
 
 ## Integración autorizada a main y cuatro pestañas administrativas
 
