@@ -44,10 +44,7 @@ Los archivos `.joblib` recibidos se conservan. Su presencia no acredita precisi�
 - `services/correctorStrategy.js`: selección de estrategias de corrección. La estrategia compleja usa por ahora un factor de ajuste.
 - `services/eventosLectura.js`: emisor y observadores. La persistencia de alertas y la notificación por sockets figuran como trabajo futuro.
 - `public/`: páginas, estilos y JavaScript del navegador.
-<<<<<<< HEAD
-=======
 - `ml_engine`: MOdelos guardados, conexion del ML a la base de datos, el entrenador del ML (Estado actual de esqueleto), integracion IoT que se conecta al ESP32
->>>>>>> 207eda1 (Comentarios y cambio a base de datos en linea, por ahora en privado hasta poder cargar a la nube)
 
 La versión incluye componentes de State, Strategy y Observer, con distintos grados de integración. No hay una suite de pruebas automatizada configurada: `npm test` todavía es el marcador inicial del proyecto.
 

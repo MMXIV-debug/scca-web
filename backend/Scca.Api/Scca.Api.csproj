@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
-=======
-<Project Sdk="Microsoft.NET.Sdk.Web">
->>>>>>> 207eda1 (Comentarios y cambio a base de datos en linea, por ahora en privado hasta poder cargar a la nube)
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
