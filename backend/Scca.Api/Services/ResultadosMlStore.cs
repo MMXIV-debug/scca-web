@@ -114,7 +114,11 @@ public static class ResultadosMlStore
         }
         long resultadoId;
         await using (var cmd = new NpgsqlCommand("""
-            SELECT id, entrada=@entrada AND resultado=@resultado AND periodo_fin=@fin
+            -- consultado_en cambia en cada consulta a la fuente externa; no cuenta como "resultado diferente".
+            SELECT id, entrada=@entrada
+                AND (resultado #- '{entrada_fuente,procedencia,consultado_en}')
+                  = (@resultado::jsonb #- '{entrada_fuente,procedencia,consultado_en}')
+                AND periodo_fin=@fin
             FROM public.ml_demo_resultado WHERE version=@version AND periodo_inicio=@inicio AND entrada_sha256=@hash
             """, connection, transaction))
         {

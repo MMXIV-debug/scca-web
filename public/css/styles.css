@@ -539,3 +539,6 @@ body.dashboard-body {
 /* Gráficos del visualizador */
 .grafico-alto { position: relative; height: 320px; padding: 0 2.5rem; }
 .voc-placeholder { position: absolute; top: 8px; right: 3rem; opacity: .85; }
+[data-bs-theme="dark"] #carrusel-graficos .carousel-control-prev-icon,
+[data-bs-theme="dark"] #carrusel-graficos .carousel-control-next-icon { filter: none; }
+[data-bs-theme="dark"] #carrusel-graficos .carousel-indicators [data-bs-target] { background-color: #e4ede7; }
