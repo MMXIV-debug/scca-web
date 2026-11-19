@@ -1,15 +1,246 @@
-using System.ComponentModel.DataAnnotations;
-using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
+using NpgsqlTypes;
 using Scca.Api.Services;
+using System.ComponentModel.DataAnnotations;
+using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Scca.Api.Controllers;
 
+public sealed record NuevaPoliticaMl(
+    [property: JsonPropertyName("version_anterior")] int VersionAnterior,
+    [Required] string Motivo,
+    [property: JsonPropertyName("completitud_min_pct")] decimal CompletitudMinPct,
+    [property: JsonPropertyName("colocacion_dias")] int ColocacionDias,
+    [property: JsonPropertyName("pares_minimos")] int ParesMinimos,
+    [property: JsonPropertyName("test_pct")] decimal TestPct,
+    [property: JsonPropertyName("mejora_rmse_min_pct")] decimal MejoraRmseMinPct,
+    [property: JsonPropertyName("sin_datos_seg")] int SinDatosSeg,
+    JsonElement Configuracion);
+
+public sealed record NuevoModeloMl(
+    [Range(1,int.MaxValue)] int SensorId,
+    [Range(1,short.MaxValue)] short VariableId,
+    [Range(1,int.MaxValue)] int PoliticaId,
+    [Range(1,int.MaxValue)] int Version,
+    [Required, RegularExpression("regresion_lineal|random_forest")] string Algoritmo,
+    JsonElement Parametros,
+    [StringLength(1024)] string? ArtefactoRuta,
+    [RegularExpression("[a-fA-F0-9]{64}")] string? HashArtefacto,
+    decimal? DominioMin, decimal? DominioMax);
+
+public sealed record CambioEstadoMl([Required, StringLength(1000, MinimumLength=3)] string Motivo);
+
+public sealed record NuevaValidacionMl(
+    [Range(1,int.MaxValue)] int ModeloId,
+    [Range(1,int.MaxValue)] int PoliticaId,
+    [Range(1,int.MaxValue)] int Pares,
+    [Required, RegularExpression("apto|rechazado|pendiente")] string Estado,
+    decimal? MaeOrig, decimal? RmseOrig, decimal? SesgoOrig,
+    decimal? MaeMl, decimal? RmseMl, decimal? SesgoMl, decimal? R2, decimal? MejoraRmsePct,
+    [RegularExpression("[a-fA-F0-9]{64}")] string? HashConjunto);
+
+
 [ApiController]
 [Route("api/ml")]
-public sealed partial class CatalogoMlController(NpgsqlDataSource database, IHttpClientFactory clients) : ControllerBase
+public sealed class CatalogoMlController(NpgsqlDataSource database, IHttpClientFactory clients) : ControllerBase
 {
+
+    [HttpGet("politicas"), AccesoMl(AccesoMl.Administrador)]
+    public Task<IActionResult> Politicas(CancellationToken ct, int limite = 50, int despuesDe = 0)
+        => Consultar("politica_ml", null, limite, despuesDe, ct);
+
+    [HttpGet("politicas/{id:int}"), AccesoMl(AccesoMl.Administrador)]
+    public Task<IActionResult> Politica(int id, CancellationToken ct) => Consultar("politica_ml", id, 1, 0, ct);
+
+    [HttpPost("politicas"), AccesoMl(AccesoMl.Administrador)]
+    public async Task<IActionResult> CrearPolitica(NuevaPoliticaMl politica, CancellationToken ct)
+    {
+        if (politica.Configuracion.ValueKind != JsonValueKind.Object) return BadRequest();
+        // El panel y Swagger comparten el mismo validador y la misma transacción de versionado.
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/admin/ml/politicas");
+        request.Headers.Authorization = AuthenticationHeaderValue.Parse(Request.Headers.Authorization.ToString());
+        request.Content = JsonContent.Create(politica);
+        try
+        {
+            using var client = clients.CreateClient("Panel");
+            using var response = await client.SendAsync(request, ct);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+            if (!response.IsSuccessStatusCode) return StatusCode((int)response.StatusCode, body);
+            return CreatedAtAction(nameof(Politica), new { id = body.GetProperty("id").GetInt32() }, body);
+        }
+        catch (Exception e) when (e is HttpRequestException or JsonException or NotSupportedException ||
+            e is OperationCanceledException && !ct.IsCancellationRequested)
+        { return Problem(statusCode: 503, title: "El panel no pudo confirmar la nueva versión de la política."); }
+    }
+
+    [HttpGet("modelos"), AccesoMl(AccesoMl.Administrador)]
+    public Task<IActionResult> Modelos(CancellationToken ct, int limite = 50, int despuesDe = 0)
+        => Consultar("modelo_ml", null, limite, despuesDe, ct);
+
+    [HttpGet("modelos/{id:int}"), AccesoMl(AccesoMl.Administrador)]
+    public Task<IActionResult> Modelo(int id, CancellationToken ct) => Consultar("modelo_ml", id, 1, 0, ct);
+
+    [HttpPost("modelos"), AccesoMl(AccesoMl.ServicioML)]
+    public Task<IActionResult> RegistrarModelo(NuevoModeloMl modelo, CancellationToken ct)
+        => Escribir(async (con,tx) =>
+        {
+            if (modelo.Parametros.ValueKind != JsonValueKind.Object || modelo.DominioMin > modelo.DominioMax)
+                return BadRequest(new { error = "Revisa los parámetros y el rango del modelo." });
+            await using var cmd = new NpgsqlCommand("""
+                INSERT INTO modelo_ml AS m(sensor_id,variable_id,politica_id,version,algoritmo,parametros,
+                    artefacto_ruta,hash_artefacto,dominio_min,dominio_max)
+                VALUES(@sensor,@variable,@politica,@version,@algoritmo,CAST(@parametros AS jsonb),@ruta,@hash,@min,@max)
+                RETURNING to_jsonb(m)::text
+                """, con, tx);
+            cmd.Parameters.AddWithValue("sensor",modelo.SensorId);
+            cmd.Parameters.AddWithValue("variable",modelo.VariableId);
+            cmd.Parameters.AddWithValue("politica",modelo.PoliticaId);
+            cmd.Parameters.AddWithValue("version",modelo.Version);
+            cmd.Parameters.AddWithValue("algoritmo",modelo.Algoritmo);
+            cmd.Parameters.AddWithValue("parametros",modelo.Parametros.GetRawText());
+            cmd.Parameters.AddWithValue("ruta",NpgsqlTypes.NpgsqlDbType.Text,(object?)modelo.ArtefactoRuta ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("hash",NpgsqlTypes.NpgsqlDbType.Text,(object?)modelo.HashArtefacto ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("min",NpgsqlTypes.NpgsqlDbType.Numeric,(object?)modelo.DominioMin ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("max",NpgsqlTypes.NpgsqlDbType.Numeric,(object?)modelo.DominioMax ?? DBNull.Value);
+            var row = JsonSerializer.Deserialize<JsonElement>((string)(await cmd.ExecuteScalarAsync(ct))!);
+            int id = row.GetProperty("id").GetInt32();
+            await Auditar(con,tx,"modelo_ml",id,"registrar","Registro del servicio ML",null,row.GetRawText(),ct);
+            return CreatedAtAction(nameof(Modelo),new {id},row);
+        },ct);
+
+    [HttpPost("modelos/{id:int}/suspender"), AccesoMl(AccesoMl.Administrador)]
+    public Task<IActionResult> Suspender(int id, CambioEstadoMl cambio, CancellationToken ct)
+        => CambiarEstado(id,cambio,false,ct);
+
+    [HttpPost("modelos/{id:int}/revertir"), AccesoMl(AccesoMl.Administrador)]
+    public Task<IActionResult> Revertir(int id, CambioEstadoMl cambio, CancellationToken ct)
+        => CambiarEstado(id,cambio,true,ct);
+
+    private Task<IActionResult> CambiarEstado(int id, CambioEstadoMl cambio, bool revertir, CancellationToken ct)
+        => Escribir(async (con,tx) =>
+        {
+            if (id <= 0 || string.IsNullOrWhiteSpace(cambio.Motivo)) return BadRequest();
+            // El bloqueo del sensor serializa la selección y el cambio de ambas versiones.
+            await using var sensor = new NpgsqlCommand("""
+                SELECT s.activo FROM sensor s JOIN modelo_ml m ON m.sensor_id=s.id
+                WHERE m.id=@id FOR UPDATE OF s
+                """,con,tx);
+            sensor.Parameters.AddWithValue("id",id);
+            var activo = await sensor.ExecuteScalarAsync(ct);
+            if (activo is null) return NotFound();
+            if (revertir && activo is false) return Conflict(new { error = "Sensor inactivo." });
+            await using var actual = new NpgsqlCommand("""
+                SELECT to_jsonb(m)::text FROM modelo_ml m WHERE id=@id FOR UPDATE
+                """,con,tx);
+            actual.Parameters.AddWithValue("id",id);
+            var row = JsonSerializer.Deserialize<JsonElement>((string)(await actual.ExecuteScalarAsync(ct))!);
+            if (row.GetProperty("estado").GetString() != "activo")
+                return Conflict(new { error = "La acción requiere la versión actualmente activa." });
+
+            JsonElement? anterior = null;
+            if (revertir)
+            {
+                await using var buscar = new NpgsqlCommand("""
+                    SELECT to_jsonb(m)::text FROM modelo_ml m WHERE sensor_id=@sensor AND variable_id=@variable
+                      AND version < @version AND estado='suspendido' AND activado_en IS NOT NULL
+                      AND (SELECT v.estado FROM validacion_ml v WHERE v.modelo_id=m.id AND v.politica_id=m.politica_id
+                           ORDER BY v.evaluado_en DESC,v.id DESC LIMIT 1)='apto'
+                    ORDER BY activado_en DESC,version DESC LIMIT 1 FOR UPDATE OF m
+                    """,con,tx);
+                buscar.Parameters.AddWithValue("sensor",row.GetProperty("sensor_id").GetInt32());
+                buscar.Parameters.AddWithValue("variable",row.GetProperty("variable_id").GetInt16());
+                buscar.Parameters.AddWithValue("version",row.GetProperty("version").GetInt32());
+                if (await buscar.ExecuteScalarAsync(ct) is not string json)
+                    return Conflict(new { error = "No hay una versión anterior activada con validación apta." });
+                anterior = JsonSerializer.Deserialize<JsonElement>(json);
+            }
+            async Task<JsonElement> Guardar(JsonElement original,string estado)
+            {
+                int modeloId = original.GetProperty("id").GetInt32();
+                await using var update = new NpgsqlCommand("""
+                    UPDATE modelo_ml m SET estado=@estado,
+                        activado_en=CASE WHEN @estado='activo' THEN now() ELSE activado_en END
+                    WHERE id=@id RETURNING to_jsonb(m)::text
+                    """,con,tx);
+                update.Parameters.AddWithValue("id",modeloId);
+                update.Parameters.AddWithValue("estado",estado);
+                var nuevo = (string)(await update.ExecuteScalarAsync(ct))!;
+                await Auditar(con,tx,"modelo_ml",modeloId,revertir?"revertir":"suspender",cambio.Motivo,
+                    original.GetRawText(),nuevo,ct);
+                return JsonSerializer.Deserialize<JsonElement>(nuevo);
+            }
+            var suspendido = await Guardar(row,"suspendido");
+            if (anterior.HasValue) return Ok(await Guardar(anterior.Value,"activo"));
+            return Ok(suspendido);
+        },ct);
+
+    [HttpGet("validaciones"), AccesoMl(AccesoMl.Administrador)]
+    public Task<IActionResult> Validaciones(CancellationToken ct, int limite = 50, int despuesDe = 0)
+        => Consultar("validacion_ml", null, limite, despuesDe, ct);
+
+    [HttpGet("validaciones/{id:int}"), AccesoMl(AccesoMl.Administrador)]
+    public Task<IActionResult> Validacion(int id, CancellationToken ct) => Consultar("validacion_ml", id, 1, 0, ct);
+
+    [HttpPost("validaciones"), AccesoMl(AccesoMl.ServicioML)]
+    public Task<IActionResult> RegistrarValidacion(NuevaValidacionMl v, CancellationToken ct)
+        => Escribir(async (con,tx) =>
+        {
+            decimal?[] metricas = [v.MaeOrig,v.MaeMl,v.RmseOrig,v.RmseMl,v.SesgoOrig,v.SesgoMl,v.R2];
+            if (metricas.Any(m => m is >= 1000000 or <= -1000000 ||
+                m.HasValue && decimal.Round(m.Value, 6) != m.Value) ||
+                v.MaeOrig < 0 || v.MaeMl < 0 || v.RmseOrig < 0 || v.RmseMl < 0 || v.R2 > 1)
+                return BadRequest(new { error = "Métricas fuera de rango." });
+            await using var modelo = new NpgsqlCommand("""
+                SELECT p.mejora_rmse_min_pct,p.pares_minimos FROM modelo_ml m JOIN politica_ml p ON p.id=m.politica_id
+                WHERE m.id=@modelo AND p.id=@politica FOR UPDATE OF m
+                """,con,tx);
+            modelo.Parameters.AddWithValue("modelo",v.ModeloId);
+            modelo.Parameters.AddWithValue("politica",v.PoliticaId);
+            decimal minimo;
+            int paresMinimos;
+            await using (var reader = await modelo.ExecuteReaderAsync(ct))
+            {
+                if (!await reader.ReadAsync(ct))
+                    return BadRequest(new { error = "La política debe corresponder al modelo evaluado." });
+                minimo = reader.GetDecimal(0);
+                paresMinimos = reader.GetInt32(1);
+            }
+            if (v.Estado == "apto" && (v.Pares < paresMinimos || v.RmseOrig is null or <= 0 || v.RmseMl is null ||
+                v.MaeMl is null || v.MaeOrig is null || v.MaeMl > v.MaeOrig ||
+                v.SesgoMl is null || v.SesgoOrig is null || Math.Abs(v.SesgoMl.Value)>Math.Abs(v.SesgoOrig.Value) ||
+                v.MejoraRmsePct is null || v.MejoraRmsePct < minimo ||
+                decimal.Round(100m*(v.RmseOrig.Value-v.RmseMl.Value)/v.RmseOrig.Value,2) != v.MejoraRmsePct))
+                return BadRequest(new { error = "Las métricas no justifican una evaluación apta según la política." });
+            await using var cmd = new NpgsqlCommand("""
+                INSERT INTO validacion_ml AS v(modelo_id,politica_id,pares,estado,mae_orig,rmse_orig,sesgo_orig,
+                    mae_ml,rmse_ml,sesgo_ml,r2,mejora_rmse_pct,hash_conjunto)
+                VALUES(@modelo,@politica,@pares,@estado,@mae0,@rmse0,@sesgo0,@mae,@rmse,@sesgo,@r2,@mejora,@hash)
+                RETURNING to_jsonb(v)::text
+                """,con,tx);
+            cmd.Parameters.AddWithValue("modelo",v.ModeloId);
+            cmd.Parameters.AddWithValue("politica",v.PoliticaId);
+            cmd.Parameters.AddWithValue("pares",v.Pares);
+            cmd.Parameters.AddWithValue("estado",v.Estado);
+            void Metrica(string nombre,decimal? valor) =>
+                cmd.Parameters.AddWithValue(nombre,NpgsqlDbType.Numeric,(object?)valor ?? DBNull.Value);
+            Metrica("mae0",v.MaeOrig);
+            Metrica("rmse0",v.RmseOrig);
+            Metrica("sesgo0",v.SesgoOrig);
+            Metrica("mae",v.MaeMl);
+            Metrica("rmse",v.RmseMl);
+            Metrica("sesgo",v.SesgoMl);
+            Metrica("r2",v.R2);
+            Metrica("mejora",v.MejoraRmsePct);
+            cmd.Parameters.AddWithValue("hash",NpgsqlDbType.Text,(object?)v.HashConjunto ?? DBNull.Value);
+            var row = JsonSerializer.Deserialize<JsonElement>((string)(await cmd.ExecuteScalarAsync(ct))!);
+            int id = row.GetProperty("id").GetInt32();
+            await Auditar(con,tx,"validacion_ml",id,"registrar","Evaluación del servicio ML",null,row.GetRawText(),ct);
+            return CreatedAtAction(nameof(Validacion),new {id},row);
+        },ct);
+
     private async Task<IActionResult> Consultar(string tabla, int? id, int limite, int despuesDe, CancellationToken ct)
     {
         if (id <= 0 || despuesDe < 0 || limite is < 1 or > 100) return BadRequest();
