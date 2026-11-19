@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  const $ = id => document.getElementById(id);
+  if (!document.getElementById('seccion-cuarentena')) return;
+  const $ = id => document.getElementById('seccion-cuarentena-' + id);
   const token = localStorage.getItem('token');
   let cursor = '0', siguiente = '0', ocupado = false;
   const mensaje = texto => { $('mensaje').textContent = texto; };
@@ -24,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const detalles = document.createElement('details'), resumen = document.createElement('summary'), datos = document.createElement('pre');
       resumen.textContent = item.causa; datos.textContent = JSON.stringify(item.payload, null, 2);
       detalles.append(resumen, datos); fila.children[2].append(detalles);
-      fila.children[3].textContent = item.estado + (item.motivo ? ` · ${item.motivo} · administrador ${item.usuario_id}` : '');
+      fila.children[3].textContent = item.estado + (item.clasificacion?' · '+item.clasificacion.replaceAll('_',' '):'') + (item.motivo ? ` · ${item.motivo} · administrador ${item.usuario_id}` : '');
       $('filas').append(fila);
     }
     $('siguiente').disabled = pagina.items.length < 50;
@@ -39,10 +40,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const ids = [...$('filas').querySelectorAll('input:checked')].map(i => i.value);
     if (!ids.length) return mensaje('Selecciona al menos una muestra.');
     const accion = $('accion').value, motivo = $('motivo').value.trim();
-    if (!confirm(`¿Confirmas ${accion} ${ids.length} muestras?\nMotivo: ${motivo}`)) return;
+    if (!confirm(`¿Confirmas ${accion} ${ids.length} muestras?\nClasificación: ${$('clasificacion').selectedOptions[0].textContent}\nMotivo: ${motivo}`)) return;
     ocupado = true; $('guardar').disabled = true;
     try {
-      await api('/api/admin/cuarentena/decisiones', { method: 'POST', body: JSON.stringify({ ids, accion, motivo }) });
+      await api('/api/admin/cuarentena/decisiones', { method: 'POST', body: JSON.stringify({ ids, accion, motivo, clasificacion:$('clasificacion').value }) });
       cursor = '0'; await cargar(); $('motivo').value = ''; mensaje('Decisión registrada y auditada.');
     } catch (e) { mensaje(e.message); }
     finally { ocupado = false; $('guardar').disabled = false; }

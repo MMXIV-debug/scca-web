@@ -1,0 +1,11 @@
+{
+  "Nombre": "SCCA_Entrenamiento_ML",
+  "Estado": "Ready",
+  "UltimaEjecucion": "2026-11-16T10:02:51.0000000-04:00",
+  "UltimoResultado": 0,
+  "ProximaEjecucion": "2026-11-23T10:00:00.0000000-04:00",
+  "ApuntaCarpetaActual": true,
+  "IncluyeEvaluar": false,
+  "IncluyeDataset": false,
+  "IncluyeProposito": false
+}

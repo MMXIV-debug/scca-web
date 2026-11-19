@@ -29,6 +29,8 @@ class SeleccionModelo(BaseModel):
     def comprobar(self):
         if self.variable not in PERFILES[self.perfil].unidades:
             raise ValueError('Variable ajena al perfil.')
+        if self.proposito == 'anomalias' and self.variable != ('PM25' if self.perfil == 'contaminantes_simulados' else 'TEMP'):
+            raise ValueError('El detector evalúa el perfil completo: seleccionar PM25 para contaminantes o TEMP para perfiles físicos.')
         if (self.proposito == 'pronostico') != (self.horizonte_h > 0):
             raise ValueError('Pronóstico exige horizonte 1/3/6; los otros propósitos exigen 0.')
         return self
@@ -82,7 +84,8 @@ class ServicioRegistro:
                     or entrada['perfil'] != seleccion.perfil or entrada['proposito'] != seleccion.proposito
                     or entrada['variable'] != seleccion.variable or entrada['horizonte_h'] != seleccion.horizonte_h):
                 raise ValueError('Identidad/estado incompatible')
-            if entrada['entrada_agregado_s'] != 3600 or entrada['intervalo_s'] <= 0 or 3600 % entrada['intervalo_s']:
+            agregado_esperado=0 if seleccion.proposito=='anomalias' else 3600
+            if entrada['entrada_agregado_s'] != agregado_esperado or entrada['intervalo_s'] <= 0 or 3600 % entrada['intervalo_s']:
                 raise ValueError('Contrato temporal incompatible')
             cobertura = entrada['politica']['completitud_minima']
             if not math.isfinite(cobertura) or not .75 <= cobertura <= 1:
@@ -114,7 +117,8 @@ class ServicioRegistro:
                     'version', 'perfil', 'proposito', 'variable', 'horizonte_h',
                     'algoritmo', 'sha256', 'dataset_sha256', 'politica',
                     'variables_entrada', 'dominio', 'entrada_agregado_s', 'intervalo_s',
-                    'metricas', 'particiones', 'creado_en') if k in entrada} if entrada else None,
+                    'metricas', 'particiones', 'creado_en','tipo_pronostico','modo_evaluacion',
+                    'validacion_etiquetada','interpretacion','procedencia_entrenamiento') if k in entrada} if entrada else None,
                 'valor': None, 'es_anomalia': None}
 
     def estado(self, seleccion):
@@ -131,7 +135,8 @@ class ServicioRegistro:
         columnas = entrada['variables_entrada']
         if set(solicitud.valores) != set(columnas):
             raise HTTPException(422, {'variables_requeridas': columnas})
-        if any(not entrada['dominio'][c][0] <= solicitud.valores[c] <= entrada['dominio'][c][1] for c in columnas):
+        fuera=any(not entrada['dominio'][c][0] <= solicitud.valores[c] <= entrada['dominio'][c][1] for c in columnas)
+        if fuera and not (solicitud.proposito=='pronostico' and entrada['politica'].get('arranque_demo')):
             respuesta['estado'] = 'fuera_dominio'
             return respuesta
         try:
@@ -155,6 +160,7 @@ class ServicioRegistro:
         except Exception as exc:
             raise HTTPException(503, 'No se pudo verificar o ejecutar el artefacto activo.') from exc
         respuesta.update({'estado': 'evaluado_demo', 'valor': valor,
+                          'tipo_pronostico':entrada.get('tipo_pronostico'), 'fuera_dominio_entrada':fuera,
                           'unidad': PERFILES[solicitud.perfil].unidades[solicitud.variable],
                           'periodo_inicio': solicitud.periodo_inicio, 'periodo_fin': solicitud.periodo_fin,
                           'objetivo_inicio': solicitud.periodo_inicio + timedelta(hours=solicitud.horizonte_h),
@@ -162,7 +168,7 @@ class ServicioRegistro:
         return respuesta
 
 
-def crear_router_registro(raiz, obtener_clave):
+def crear_router_registro(raiz, obtener_clave, obtener_detector=None, obtener_version=None):
     servicio = ServicioRegistro(raiz)
 
     def autenticar(x_api_key: str | None = Header(default=None)):
@@ -174,6 +180,75 @@ def crear_router_registro(raiz, obtener_clave):
 
     router = APIRouter(prefix='/api/v2/modelos', dependencies=[Depends(autenticar)])
 
+    class MuestraBruta(BaseModel):
+        model_config=ConfigDict(extra='forbid',allow_inf_nan=False)
+        nodo_id:int=Field(gt=0,strict=True)
+        sensor_id:int=Field(gt=0,strict=True)
+        perfil:Literal['dht11','bme680','contaminantes_simulados']
+        valores:dict[str,float]=Field(min_length=1,max_length=4)
+
+    @router.post('/muestra')
+    def muestra(solicitud:MuestraBruta):
+        identidad={'nodo_id':solicitud.nodo_id,'sensor_id':solicitud.sensor_id}
+        if set(solicitud.valores)!=set(PERFILES[solicitud.perfil].unidades):
+            raise HTTPException(422,'Se requieren todas las variables del perfil.')
+        for c,v in solicitud.valores.items():
+            if (c!='TEMP' and v<0) or c=='HUM' and v>100 or c in ('PRES','GAS') and v<=0 or c=='TEMP' and (v< -273.15 or solicitud.perfil=='dht11' and not 0<=v<=50):
+                raise HTTPException(422,'Entrada fuera del rango físico.')
+        seleccion=SeleccionModelo(nodo_id=solicitud.nodo_id,sensor_id=solicitud.sensor_id,perfil=solicitud.perfil,
+            proposito='anomalias',variable='PM25' if solicitud.perfil=='contaminantes_simulados' else 'TEMP')
+        entrada=servicio.resolver(seleccion)
+        if entrada:
+            try:
+                ruta=(servicio.raiz/entrada['artefacto']).resolve()
+                if not ruta.is_relative_to(servicio.raiz):raise ValueError('Ruta fuera del registro')
+                contenido=ruta.read_bytes()
+                if hashlib.sha256(contenido).hexdigest()!=entrada['sha256']:raise ValueError('Hash incompatible')
+                modelo=joblib.load(io.BytesIO(contenido));columnas=entrada['variables_entrada']
+                if list(modelo.feature_names_in_)!=columnas or set(columnas)!=set(solicitud.valores):raise ValueError('Columnas incompatibles')
+                resultado=modelo.predict(pd.DataFrame([[solicitud.valores[c] for c in columnas]],columns=columnas))
+                if len(resultado)!=1 or resultado[0] not in (-1,1):raise ValueError('Salida incompatible')
+                return {**identidad,'estado':'evaluado_demo','es_anomalia':bool(resultado[0]==-1),'modelo_version':entrada['version'],'perfil':solicitud.perfil,'validacion_independiente':False,
+                        'modo_evaluacion':entrada.get('modo_evaluacion','etiquetada'),'interpretacion':'lectura inusual; no confirma fallo del sensor'}
+            except Exception as e:
+                raise HTTPException(503,'No se pudo ejecutar el detector versionado.') from e
+        if solicitud.perfil=='contaminantes_simulados' and obtener_detector and obtener_version:
+            from integracion_iot import evaluar
+            return {**identidad,'estado':'evaluado_legacy','es_anomalia':evaluar(obtener_detector(),solicitud.valores),
+                'modelo_version':obtener_version(),'perfil':solicitud.perfil,'validacion_independiente':False}
+        return {**identidad,'estado':'sin_modelo','es_anomalia':None,'modelo_version':None,'perfil':solicitud.perfil,'validacion_independiente':False}
+
+    @router.get('/registro')
+    def registro():
+        try:
+            ruta=Path(raiz)/'registro.json'
+            datos=json.loads(ruta.read_text(encoding='utf-8')) if ruta.exists() else {'modelos':{},'activos':{}}
+            activos=set(datos['activos'].values())
+            claves=('version','clave','algoritmo','estado','perfil','sensor','proposito','variable','horizonte_h','politica','razones','metricas','etiquetas','criterios_anomalias','pares','dias_cubiertos','cobertura_periodo','creado_en','anterior','calibracion_fisica_validada','validacion_independiente','tipo_pronostico','modo_evaluacion','validacion_etiquetada','procedencia_entrenamiento')
+            items=[{**{k:m.get(k) for k in claves},'activo':m['version'] in activos} for m in datos['modelos'].values()]
+            items.sort(key=lambda m:m.get('creado_en') or '',reverse=True)
+            ciclos=[]
+            for p in sorted((Path(raiz)/'ciclos').glob('*.json'),key=lambda p:p.stat().st_mtime,reverse=True)[:10]:
+                ciclos.append(json.loads(p.read_text(encoding='utf-8')))
+            recientes=items[:500];versiones={m['version'] for m in recientes}
+            return {'items':[m for m in items if m['activo'] and m['version'] not in versiones]+recientes, 'activos':[m for m in items if m['activo']], 'total':len(items), 'ciclos':ciclos, 'ambito':'demostracion'}
+        except (OSError,ValueError,KeyError,TypeError) as e:
+            raise HTTPException(503,'No se pudo consultar el registro.') from e
+
+    class Reversion(BaseModel):
+        model_config=ConfigDict(extra='forbid')
+        clave:str=Field(min_length=1,max_length=200)
+        motivo:str=Field(min_length=10,max_length=1000)
+
+    @router.post('/revertir')
+    def revertir(solicitud:Reversion):
+        from gobernanza import Registro
+        try:
+            anterior=Registro(raiz).revertir(solicitud.clave,solicitud.motivo)
+            return {'estado':'revertido','anterior':anterior}
+        except ValueError as e:
+            raise HTTPException(409,str(e)) from e
+
     @router.post('/estado')
     def estado(solicitud: SeleccionModelo):
         return servicio.estado(solicitud)
@@ -181,5 +256,48 @@ def crear_router_registro(raiz, obtener_clave):
     @router.post('/inferir')
     def inferir(solicitud: EntradaModelo):
         return servicio.inferir(solicitud)
+
+    class EntradaFuente(SeleccionModelo):
+        periodo_inicio:datetime
+        periodo_fin:datetime
+        modelo_version:str=Field(pattern=r'^[a-f0-9]{32}$')
+
+        @model_validator(mode='after')
+        def periodo(self):
+            a,b=self.periodo_inicio,self.periodo_fin
+            if a.tzinfo is None or b.tzinfo is None or a.astimezone(timezone.utc).minute or a.second or a.microsecond or b-a!=timedelta(hours=1) or b>datetime.now(timezone.utc) or a<datetime.now(timezone.utc)-timedelta(days=3):
+                raise ValueError('Se requiere una hora cerrada con zona de los últimos tres días.')
+            return self
+
+    from functools import lru_cache
+    import time
+
+    @lru_cache(maxsize=32)
+    def fuente_horaria(lat,lon,inicio,fin,bloque):
+        import pandas as pd
+        from referencias import descargar_referencia,normalizar_referencia
+        a,b=pd.Timestamp(inicio),pd.Timestamp(fin)
+        datos,meta=descargar_referencia(lat,lon,a,b,timeout=10)
+        tabla=normalizar_referencia(datos,a,b)
+        tabla['PM1']=(tabla.PM25*.70).round(2)
+        if len(tabla)!=1 or tabla.isna().any().any():raise ValueError('Fuente incompleta.')
+        return {c:float(tabla.iloc[0][c]) for c in tabla},meta
+
+    @router.post('/inferir-fuente')
+    def inferir_fuente(solicitud:EntradaFuente):
+        entrada=servicio.resolver(solicitud)
+        if not entrada or entrada['version']!=solicitud.modelo_version:
+            raise HTTPException(409,'Cambió el modelo activo.')
+        if solicitud.perfil!='contaminantes_simulados' or solicitud.proposito!='pronostico' or not entrada['politica'].get('arranque_demo') or not entrada.get('fuente_coordenadas'):
+            raise HTTPException(422,'Este modelo no admite entrada directa del proveedor.')
+        try:
+            coords=entrada['fuente_coordenadas']
+            valores,meta=fuente_horaria(coords['latitud'],coords['longitud'],solicitud.periodo_inicio.isoformat(),solicitud.periodo_fin.isoformat(),int(time.time()/600))
+        except Exception as e:
+            raise HTTPException(503,'Fuente Open-Meteo no disponible; no se inventó una entrada.') from e
+        seleccion=solicitud.model_dump(exclude={'periodo_inicio','periodo_fin','modelo_version'})
+        respuesta=servicio.inferir(EntradaModelo(**seleccion,valores=valores,periodo_inicio=solicitud.periodo_inicio,periodo_fin=solicitud.periodo_fin,modelo_version=solicitud.modelo_version))
+        respuesta['entrada_fuente']={'tipo':'historial_modelado_Open-Meteo','valores':valores,'cobertura':{c:1.0 for c in valores},'procedencia':meta,'PM1':'estimado: 0.70 × PM25'}
+        return respuesta
 
     return router

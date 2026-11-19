@@ -12,7 +12,7 @@ from inferencia_registro import crear_router_registro
 from test_gobernanza import dataset_prueba
 
 
-async def solicitar(app, ruta, datos, clave='clave-solo-prueba'):
+async def solicitar(app, ruta, datos, clave='clave-solo-prueba', metodo='POST'):
     """Ejecuta el contrato ASGI real sin abrir puertos ni requerir httpx."""
     mensajes = []
     cuerpo = json.dumps(datos).encode()
@@ -20,7 +20,7 @@ async def solicitar(app, ruta, datos, clave='clave-solo-prueba'):
     if clave is not None:
         headers.append((b'x-api-key', clave.encode()))
     scope = {'type': 'http', 'asgi': {'version': '3.0'}, 'http_version': '1.1',
-             'method': 'POST', 'scheme': 'http', 'path': ruta, 'raw_path': ruta.encode(),
+             'method': metodo, 'scheme': 'http', 'path': ruta, 'raw_path': ruta.encode(),
              'query_string': b'', 'root_path': '', 'headers': headers,
              'server': ('test', 80), 'client': ('127.0.0.1', 1)}
 
@@ -67,11 +67,33 @@ class InferenciaTests(unittest.TestCase):
         self.assertFalse(salida['calibracion_fisica_validada'])
         self.assertIsNone(salida['es_anomalia'])
 
+    def test_listado_incluye_activos_sin_rutas_privadas(self):
+        codigo,datos=asyncio.run(solicitar(self.app,'/api/v2/modelos/registro',{},metodo='GET'))
+        self.assertEqual(codigo,200)
+        self.assertTrue(datos['items'][0]['activo'])
+        self.assertNotIn('artefacto',datos['items'][0])
+
+    def test_reversion_por_api_requiere_credencial_y_motivo(self):
+        body={'clave':self.modelo['clave'],'motivo':'Revisión administrativa de prueba'}
+        self.assertEqual(self.pedir('revertir',body,None)[0],401)
+        self.assertEqual(self.pedir('revertir',{**body,'motivo':'x'})[0],422)
+        self.assertEqual(self.pedir('revertir',body)[0],200)
+        self.assertEqual(self.pedir('estado',self.seleccion)[1]['estado'],'sin_modelo')
+
     def test_sensor_ajeno_no_recibe_otro_modelo(self):
         codigo, salida = self.pedir('estado', {**self.seleccion, 'sensor_id': 2})
         self.assertEqual(codigo, 200)
         self.assertEqual(salida['estado'], 'sin_modelo')
         self.assertIsNone(salida['valor'])
+
+    def test_anomalias_usa_identidad_del_perfil_completo(self):
+        from inferencia_registro import SeleccionModelo
+        from pydantic import ValidationError
+        for perfil, variable, incorrecta in [('contaminantes_simulados', 'PM25', 'CO'), ('dht11', 'TEMP', 'HUM'), ('bme680', 'TEMP', 'PRES')]:
+            seleccion = {**self.seleccion, 'perfil': perfil, 'proposito': 'anomalias', 'variable': variable}
+            self.assertEqual(SeleccionModelo(**seleccion).variable, variable)
+            with self.assertRaises(ValidationError):
+                SeleccionModelo(**{**seleccion, 'variable': incorrecta})
 
     def test_autenticacion_obligatoria(self):
         self.assertEqual(self.pedir('estado', self.seleccion, None)[0], 401)

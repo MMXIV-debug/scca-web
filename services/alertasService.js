@@ -5,6 +5,8 @@ function crearAlertasService(pool) {
       VALUES($1,$2,'alerta',$3,$4,$5,$6::jsonb)`, [usuario || null, usuario ? null : 'servicio_ml', id, accion, motivo, JSON.stringify(datos)]);
   }
   async function comprobar(usuario, umbral) {
+    let politica=null;
+    if(umbral==null){politica=await require('./politicasService').vigente(pool);umbral=politica.sin_datos_seg;}
     if (!Number.isInteger(umbral) || umbral < 60 || umbral > 604800) throw error(400, 'El umbral debe estar entre 60 y 604800 segundos.');
     const c = await pool.connect();
     try {
@@ -15,7 +17,7 @@ function crearAlertasService(pool) {
           AND u.activo AND u.estado='aprobado' AND r.nombre='Administrador' FOR SHARE OF u`, [usuario]);
         if (!r.rowCount) throw error(403, 'Se requiere un administrador activo.');
       }
-      const sensores = await c.query(`SELECT s.id,s.nodo_id,s.activo,n.estado,
+      const sensores = await c.query(`SELECT s.id,s.nodo_id,s.activo,n.estado,${politica?'s.origen,n.intervalo_muestreo_s,':''}
         GREATEST(s.alta_en,
           (SELECT MAX(recibido_en) FROM lectura_original WHERE sensor_id=s.id),
           (SELECT MAX(recibido_en) FROM lectura_cuarentena WHERE payload->>'sensorId'=s.id::text)) AS ultima_recepcion,
@@ -23,17 +25,19 @@ function crearAlertasService(pool) {
         FROM sensor s JOIN nodo n ON n.id=s.nodo_id ORDER BY s.id`);
       let abiertas = 0, resueltas = 0;
       for (const s of sensores.rows) {
+        const intervalo=politica?(politica.configuracion.intervalos_sensor?.[s.id]||(s.origen==='simulado'?900:s.intervalo_muestreo_s)):0;
+        const umbralSensor=politica?Math.max(umbral,intervalo*(politica.configuracion.factor_sin_datos||2)):umbral;
         const regla = `SCCA_SIN_DATOS_SENSOR_${s.id}`;
         const previas = await c.query("SELECT id FROM alerta WHERE tipo='tecnica' AND nodo_id=$1 AND regla=$2 AND estado IN ('abierta','atendida') FOR UPDATE", [s.nodo_id, regla]);
         const supervisar = s.activo && !['inactivo', 'mantenimiento'].includes(s.estado);
         const segundos = (s.ahora - s.ultima_recepcion) / 1000;
-        if (supervisar && segundos > umbral && !previas.rowCount) {
+        if (supervisar && segundos > umbralSensor && !previas.rowCount) {
           const nueva = await c.query(`INSERT INTO alerta(tipo,nodo_id,regla,calidad,periodo_ini,estado,observacion)
             VALUES('tecnica',$1,$2,'sin_datos',$3,'abierta',$4) RETURNING id::text`,
-          [s.nodo_id, regla, s.ultima_recepcion, `Sensor ${s.id}: sin recepción durante más de ${umbral} segundos. No implica fallo físico confirmado.`]);
-          await auditar(c, usuario, nueva.rows[0].id, 'crear', 'Inactividad de sensor', { sensor_id: s.id, umbral_s: umbral, ultima_recepcion: s.ultima_recepcion });
+          [s.nodo_id, regla, s.ultima_recepcion, `Sensor ${s.id}: sin recepción durante más de ${umbralSensor} segundos. No implica fallo físico confirmado.`]);
+          await auditar(c, usuario, nueva.rows[0].id, 'crear', 'Inactividad de sensor', { sensor_id: s.id, umbral_s: umbralSensor, politica_version:politica?.version, ultima_recepcion: s.ultima_recepcion });
           abiertas++;
-        } else if ((!supervisar || segundos <= umbral) && previas.rowCount) {
+        } else if ((!supervisar || segundos <= umbralSensor) && previas.rowCount) {
           for (const a of previas.rows) {
             const motivo = supervisar ? 'Recepción restablecida' : 'Sensor o nodo fuera de supervisión';
             await c.query("UPDATE alerta SET estado='resuelta',periodo_fin=now(),observacion=$2 WHERE id=$1", [a.id, motivo]);
@@ -86,7 +90,7 @@ function crearRouterAlertas(pool, auth, soloAdmin) {
   const habilitada = (req, res, next) => process.env.ALERTAS_TECNICAS_HABILITADAS === 'true'
     ? next() : res.status(503).json({ error: 'Escritura de alertas no habilitada.' });
   router.get('/', responder(req => servicio.listar(req.query.estado || 'abierta', req.query.despuesDe || '0', Number(req.query.limite || 50))));
-  router.post('/comprobar', habilitada, responder(req => servicio.comprobar(req.user.id, Number(process.env.ALERTAS_SIN_DATOS_S || 300))));
+  router.post('/comprobar', habilitada, responder(req => servicio.comprobar(req.user.id, process.env.ML_POLITICA_VERSIONADA==='true'?null:Number(process.env.ALERTAS_SIN_DATOS_S || 300))));
   router.post('/:id/atender', habilitada, responder(req => servicio.atender(req.user.id, req.params.id, req.body?.motivo)));
   return router;
 }
@@ -98,7 +102,7 @@ function iniciarMonitorAlertas(pool) {
   const timer = setInterval(async () => {
     if (ejecutando) return;
     ejecutando = true;
-    try { await servicio.comprobar(null, Number(process.env.ALERTAS_SIN_DATOS_S || 300)); }
+    try { await servicio.comprobar(null, process.env.ML_POLITICA_VERSIONADA==='true'?null:Number(process.env.ALERTAS_SIN_DATOS_S || 300)); }
     catch { console.error('No se pudo comprobar inactividad de sensores.'); }
     finally { ejecutando = false; }
   }, 60000);

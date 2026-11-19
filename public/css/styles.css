@@ -377,6 +377,28 @@ body.dashboard-body {
   scroll-padding-top: 1rem;
 }
 
+/* Módulos operativos integrados en las mismas tarjetas de administración. */
+.modulo-admin [hidden] { display: none !important; }
+.modulo-admin pre {
+  max-width: 100%;
+  max-height: 22rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: .8rem;
+}
+.modulo-admin .table th { white-space: nowrap; }
+.modulo-admin .table td { min-width: 7rem; }
+.modulo-admin .table td pre { min-width: 16rem; }
+.modulo-admin select:not(.form-select) {
+  padding: .375rem .75rem;
+  color: var(--bs-body-color);
+  background-color: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  max-width: 100%;
+}
+
 @media (max-width: 767.98px) {
   .dashboard-body .header-scca > .container-fluid {
     align-items: stretch !important;

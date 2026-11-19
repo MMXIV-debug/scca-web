@@ -8,7 +8,7 @@
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  
+
   <!-- Estilos globales -->
   <link rel="stylesheet" href="css/styles.css">
   <script src="js/theme.js"></script>
@@ -20,12 +20,12 @@
     <div class="container-fluid d-flex justify-content-between align-items-center p-0">
       <span class="brand-text fs-5">AIRE | Calidad del aire</span>
       <div class="header-actions d-flex align-items-center gap-3">
-        
+
         <!-- Botón mágico del Modo Oscuro -->
         <button onclick="toggleDarkMode()" data-theme-toggle type="button" aria-label="Activar modo oscuro" aria-pressed="false" class="btn theme-toggle">
           <i class="bi bi-moon-stars"></i>
         </button>
-        
+
         <span id="quien" class="user-tag small fw-bold"></span>
         <button id="btn-salir" class="btn-salir" type="button">Cerrar sesión</button>
       </div>
@@ -40,9 +40,13 @@
         <a class="sidebar-link" href="#seccion-usuarios"><i class="bi bi-people me-2"></i>Usuarios y roles</a>
         <a class="sidebar-link" href="#seccion-inactivos"><i class="bi bi-person-x me-2"></i>Inactivos</a>
         <a class="sidebar-link" href="#seccion-sitios"><i class="bi bi-geo-alt me-2"></i>Sitios y fuentes</a>
-        <a class="sidebar-link" href="administracion-ml.html?tab=politicas"><i class="bi bi-shield-check me-2"></i>Políticas</a>
-      <a class="sidebar-link" href="cuarentena.html">Revisión de cuarentena</a><a class="sidebar-link" href="administracion-ml.html?tab=modelos">Machine Learning</a><a class="sidebar-link" href="alertas.html">Alertas</a><a class="sidebar-link" href="administracion-ml.html?tab=reportes">Reportes ML</a></nav>
-      
+        <a class="sidebar-link" href="#seccion-politicas"><i class="bi bi-shield-check me-2"></i>Políticas</a>
+        <a class="sidebar-link" href="#seccion-cuarentena"><i class="bi bi-clipboard-check me-2"></i>Revisión de cuarentena</a>
+        <a class="sidebar-link" href="#seccion-modelos"><i class="bi bi-cpu me-2"></i>Machine Learning</a>
+        <a class="sidebar-link" href="#seccion-alertas"><i class="bi bi-bell me-2"></i>Alertas</a>
+        <a class="sidebar-link" href="#seccion-reportes"><i class="bi bi-file-earmark-bar-graph me-2"></i>Reportes ML</a>
+      </nav>
+
       <div class="mt-5 p-2 border-top border-secondary-subtle">
         <span class="badge bg-secondary-subtle text-dark border">PROTOTIPO SCCA</span>
         <p class="text-muted small mt-2 mb-0" style="font-size: 11px;">Módulo de gestión de usuarios activo.</p>
@@ -51,7 +55,7 @@
 
     <!-- Contenido Principal -->
     <main class="dashboard-content flex-grow-1 p-3 p-md-4" tabindex="0" aria-label="Contenido de administración">
-      
+
       <div id="seccion-resumen" class="mb-4" tabindex="-1">
         <h2 class="h4 fw-bold mb-1 titulo-scca">Administración del sistema</h2>
         <p class="text-secondary small mb-0">Fuentes, usuarios y operación del monitoreo</p>
@@ -182,7 +186,7 @@
           <span class="badge bg-secondary" id="badge-sitios">0 nodos ubicados</span>
         </div>
         <p class="text-secondary small mb-3">Ubicaciones de los nodos y fuentes de medición asociadas a cada sitio.</p>
-        
+
         <div class="table-responsive">
           <table class="table table-scca align-middle mb-0">
             <thead>
@@ -206,12 +210,12 @@
       </section>
 
       <!-- SECCIÓN: Parámetros previstos -->
-      <section id="seccion-politicas" class="panel-box p-3 p-md-4 mb-4" tabindex="-1">
+      <section id="seccion-parametros" class="panel-box p-3 p-md-4 mb-4" tabindex="-1">
         <div class="mb-3">
           <h3 class="h5 fw-bold mb-1 titulo-scca">Parámetros previstos</h3>
           <p class="text-secondary small mb-0">Alcance del piloto y últimas mediciones capturadas. Los valores ausentes se muestran como «Sin datos».</p>
         </div>
-        
+
         <div class="table-responsive">
           <table class="table table-scca align-middle mb-0">
             <thead>
@@ -233,13 +237,98 @@
         </div>
       </section>
 
+
+      <section id="seccion-politicas" data-panel-ml="politicas" class="panel-box p-3 p-md-4 mb-4 modulo-admin" tabindex="-1" aria-labelledby="seccion-politicas-titulo">
+        <h3 id="seccion-politicas-titulo" class="h5 fw-bold mb-2 titulo-scca"></h3>
+        <p id="seccion-politicas-descripcion" class="text-secondary small"></p>
+        <p id="seccion-politicas-mensaje" role="status" aria-live="polite"></p>
+        <div id="seccion-politicas-contenido" hidden>
+          <form id="seccion-politicas-filtro" class="d-flex flex-wrap align-items-end gap-2 mb-3" hidden>
+            <label for="seccion-politicas-sensor">ID del sensor <input id="seccion-politicas-sensor" class="form-control" type="number" min="1" required></label>
+            <button type="submit" class="btn btn-primary">Consultar</button>
+            <button id="seccion-politicas-exportar" type="button" class="btn btn-outline-secondary" disabled>Descargar CSV del periodo</button>
+          </form>
+          <button id="seccion-politicas-actualizar" type="button" class="btn btn-sm btn-outline-secondary my-2"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+          <div class="table-responsive"><table class="table table-scca align-middle mb-0"><thead id="seccion-politicas-cabecera"></thead><tbody id="seccion-politicas-filas"></tbody></table></div>
+          <button id="seccion-politicas-siguiente" type="button" class="btn btn-outline-secondary mt-3" hidden>Siguiente página</button>
+        </div>
+      </section>
+
+      <section id="seccion-cuarentena" class="panel-box p-3 p-md-4 mb-4 modulo-admin" tabindex="-1" aria-labelledby="titulo-cuarentena">
+        <h3 id="titulo-cuarentena" class="h5 fw-bold mb-3 titulo-scca"><i class="bi bi-clipboard-check me-1"></i> Revisión de cuarentena</h3>
+
+<p>Una lectura atípica puede ser un episodio ambiental real. Revisa los valores y documenta tu decisión. Descartar conserva la muestra y restaurar incorpora sus lecturas originales sin cambiar sus valores.</p>
+<p id="seccion-cuarentena-mensaje" role="status" aria-live="polite"></p>
+<section id="seccion-cuarentena-contenido" hidden>
+<label for="seccion-cuarentena-estado">Mostrar</label> <select id="seccion-cuarentena-estado"><option value="pendiente">Pendientes</option><option value="restaurada">Restauradas</option><option value="descartada">Descartadas</option><option value="todas">Todas</option></select>
+<button id="seccion-cuarentena-recargar" type="button" class="btn btn-secondary btn-sm">Actualizar</button>
+<div class="table-responsive my-3"><table class="table table-scca align-middle mb-0"><thead><tr><th>Elegir</th><th>Muestra</th><th>Causa y datos</th><th>Decisión</th></tr></thead><tbody id="seccion-cuarentena-filas"></tbody></table></div>
+<button id="seccion-cuarentena-siguiente" type="button" class="btn btn-outline-secondary">Siguiente página</button>
+<form id="seccion-cuarentena-decision" class="border rounded p-3 mt-3">
+<h4 class="h6 fw-bold">Decidir sobre las muestras seleccionadas</h4>
+<label for="seccion-cuarentena-accion">Decisión</label> <select id="seccion-cuarentena-accion"><option value="restaurar">Restaurar lecturas</option><option value="descartar">Descartar sin borrar</option></select>
+<label for="seccion-cuarentena-clasificacion" class="d-block mt-2">Clasificación revisada</label><select id="seccion-cuarentena-clasificacion" class="form-select"><option value="sin_clasificar">Sin etiqueta para entrenamiento</option><option value="normal">Lectura normal (restaurar)</option><option value="episodio_ambiental">Episodio ambiental real (restaurar)</option><option value="fallo_sensor">Fallo del sensor confirmado (descartar)</option><option value="dato_invalido">Dato inválido (descartar, no usar para entrenar)</option></select>
+<p class="small">Solo las clasificaciones explícitas y compatibles se usan en la evaluación de anomalías. Una lectura descartada sin clasificación no se convierte en un fallo de sensor.</p>
+<label for="seccion-cuarentena-motivo" class="d-block mt-2">Motivo de la revisión</label><textarea id="seccion-cuarentena-motivo" class="form-control" required minlength="10" maxlength="1000" rows="3"></textarea>
+<button id="seccion-cuarentena-guardar" class="btn btn-primary mt-3" type="submit">Registrar decisión</button>
+<p class="small mt-2">La decisión es definitiva. El lote se aplica completo o no se aplica ninguna decisión.</p>
+</form></section>
+      </section>
+
+      <section id="seccion-modelos" data-panel-ml="modelos" class="panel-box p-3 p-md-4 mb-4 modulo-admin" tabindex="-1" aria-labelledby="seccion-modelos-titulo">
+        <h3 id="seccion-modelos-titulo" class="h5 fw-bold mb-2 titulo-scca"></h3>
+        <p id="seccion-modelos-descripcion" class="text-secondary small"></p>
+        <p id="seccion-modelos-mensaje" role="status" aria-live="polite"></p>
+        <div id="seccion-modelos-contenido" hidden>
+          <form id="seccion-modelos-filtro" class="d-flex flex-wrap align-items-end gap-2 mb-3" hidden>
+            <label for="seccion-modelos-sensor">ID del sensor <input id="seccion-modelos-sensor" class="form-control" type="number" min="1" required></label>
+            <button type="submit" class="btn btn-primary">Consultar</button>
+            <button id="seccion-modelos-exportar" type="button" class="btn btn-outline-secondary" disabled>Descargar CSV del periodo</button>
+          </form>
+          <button id="seccion-modelos-actualizar" type="button" class="btn btn-sm btn-outline-secondary my-2"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+          <div class="table-responsive"><table class="table table-scca align-middle mb-0"><thead id="seccion-modelos-cabecera"></thead><tbody id="seccion-modelos-filas"></tbody></table></div>
+          <button id="seccion-modelos-siguiente" type="button" class="btn btn-outline-secondary mt-3" hidden>Siguiente página</button>
+        </div>
+      </section>
+
+      <section id="seccion-alertas" class="panel-box p-3 p-md-4 mb-4 modulo-admin" tabindex="-1" aria-labelledby="titulo-alertas">
+        <h3 id="titulo-alertas" class="h5 fw-bold mb-3 titulo-scca"><i class="bi bi-bell me-1"></i> Alertas</h3>
+
+<p>La inactividad indica falta de recepción de muestras, no confirma un daño del sensor. Atender registra la intervención; la alerta técnica se resuelve cuando vuelve la recepción o el equipo sale de supervisión.</p>
+<p>Las alertas ambientales usan los periodos y la cobertura definidos en Políticas. La demostración de PM2.5 compara 35,4 µg/m³ sobre 24 horas completas; no representa una norma local. Las alertas predictivas requieren una regla configurada y un resultado vigente de un modelo activo.</p>
+<p id="seccion-alertas-mensaje" role="status" aria-live="polite"></p><section id="seccion-alertas-contenido" hidden>
+<label for="seccion-alertas-estado">Estado</label><select id="seccion-alertas-estado"><option value="abierta">Abiertas</option><option value="atendida">Atendidas</option><option value="resuelta">Resueltas</option><option value="todas">Todas</option></select>
+<button id="seccion-alertas-actualizar" class="btn btn-secondary btn-sm">Actualizar</button><button id="seccion-alertas-comprobar" class="btn btn-outline-primary btn-sm">Comprobar inactividad</button>
+<div class="table-responsive"><table class="table table-scca align-middle mt-3"><thead><tr><th>ID / nodo</th><th>Regla y observación</th><th>Estado</th><th>Atención</th></tr></thead><tbody id="seccion-alertas-filas"></tbody></table></div>
+<button id="seccion-alertas-siguiente" class="btn btn-outline-secondary">Siguiente página</button></section>
+      </section>
+
+      <section id="seccion-reportes" data-panel-ml="reportes" class="panel-box p-3 p-md-4 mb-4 modulo-admin" tabindex="-1" aria-labelledby="seccion-reportes-titulo">
+        <h3 id="seccion-reportes-titulo" class="h5 fw-bold mb-2 titulo-scca"></h3>
+        <p id="seccion-reportes-descripcion" class="text-secondary small"></p>
+        <p id="seccion-reportes-mensaje" role="status" aria-live="polite"></p>
+        <div id="seccion-reportes-contenido" hidden>
+          <form id="seccion-reportes-filtro" class="d-flex flex-wrap align-items-end gap-2 mb-3" hidden>
+            <label for="seccion-reportes-sensor">ID del sensor <input id="seccion-reportes-sensor" class="form-control" type="number" min="1" required></label>
+            <button type="submit" class="btn btn-primary">Consultar</button>
+            <button id="seccion-reportes-exportar" type="button" class="btn btn-outline-secondary" disabled>Descargar CSV del periodo</button>
+          </form>
+          <button id="seccion-reportes-actualizar" type="button" class="btn btn-sm btn-outline-secondary my-2"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+          <div class="table-responsive"><table class="table table-scca align-middle mb-0"><thead id="seccion-reportes-cabecera"></thead><tbody id="seccion-reportes-filas"></tbody></table></div>
+          <button id="seccion-reportes-siguiente" type="button" class="btn btn-outline-secondary mt-3" hidden>Siguiente página</button>
+        </div>
+      </section>
+
     </main>
   </div>
 
   <!-- Bootstrap 5 JS Bundle -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  
+
   <!-- Lógica JS del Dashboard -->
   <script src="js/dashboard.js"></script>
+  <script src="js/cuarentena.js"></script>
+  <script src="js/panel-ml.js"></script>
+  <script src="js/alertas.js"></script>
 </body>
 </html>

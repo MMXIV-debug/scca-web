@@ -31,6 +31,16 @@ def preparar(args):
             conexion.execute(text('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY'))
             conexion.execute(text("SET LOCAL statement_timeout = '30s'"))
             meta, perfil, filas = cargar_sensor(conexion, args.sensor_id, desde, hasta)
+            unidades_id={r.codigo:r.unidad_id for r in conexion.execute(text('SELECT v.codigo,v.unidad_id FROM sensor_variable sv JOIN variable v ON v.id=sv.variable_id WHERE sv.sensor_id=:sensor'),{'sensor':args.sensor_id})}
+            revisadas=conexion.execute(text("""
+                SELECT q.id::text AS cuarentena_id,q.payload,a.id::text AS decision_id,
+                       a.datos_despues->>'clasificacion' AS clasificacion
+                FROM lectura_cuarentena q JOIN auditoria_evento a ON a.entidad='lectura_cuarentena'
+                  AND a.entidad_id=q.id AND a.accion IN ('restaurar','descartar')
+                WHERE q.payload->>'sensorId'=:sensor AND a.datos_despues->>'clasificacion'
+                  IN ('normal','episodio_ambiental','fallo_sensor')
+                ORDER BY a.id
+            """),{'sensor':str(args.sensor_id)}).mappings().all()
     # El simulador no siempre comparte la frecuencia de captura configurada para el nodo.
     if meta['origen'] == 'simulado' and args.intervalo_s is None:
         raise ValueError('Para datos simulados especifica --intervalo-s según la frecuencia histórica real.')
@@ -40,18 +50,50 @@ def preparar(args):
     if args.referencia_open_meteo:
         if perfil.nombre != 'contaminantes_simulados':
             raise ValueError('Esta referencia de aire solo cubre contaminantes, no DHT11/BME680.')
-        referencia = descargar_referencia(float(meta['latitud']), float(meta['longitud']), desde, hasta)
-        normalizada = normalizar_referencia(referencia[0], desde, hasta)
-        pares = emparejar_referencia(horas, normalizada)
+        try:
+            referencia = descargar_referencia(float(meta['latitud']), float(meta['longitud']), desde, hasta)
+            normalizada = normalizar_referencia(referencia[0], desde, hasta)
+            pares = emparejar_referencia(horas, normalizada)
+        except Exception:
+            if not getattr(args, 'referencia_opcional', False):
+                raise
+            referencia = None  # pronóstico puede prepararse aunque falle la referencia de calibración
     raiz = Path(args.salida).resolve()
     carpeta = raiz / f'nodo_{meta["nodo_id"]}' / f'sensor_{meta["sensor_id"]}' / perfil.nombre / (
         datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ') + '_' + uuid.uuid4().hex[:8])
     carpeta.mkdir(parents=True, exist_ok=False)
     filas.to_csv(carpeta / 'originales.csv', index=False)
+    etiquetas=[]
+    for r in revisadas:
+        try:
+            p=r['payload'];fecha=instante_utc(p['medidoEn'])
+            valores={l['variableCodigo']:float(l['valor']) for l in p['lecturas']}
+            if len(p['lecturas'])!=len(valores) or any(l.get('unidadId')!=unidades_id.get(l.get('variableCodigo')) for l in p['lecturas']):
+                continue
+            if not desde<=fecha<hasta or set(valores)!=set(perfil.unidades):
+                continue
+            import math
+            if not all(math.isfinite(v) for v in valores.values()):
+                continue
+            if any((c!='TEMP' and v<0) or c=='HUM' and v>100 or c in ('PRES','GAS') and v<=0 or c=='TEMP' and (v< -273.15 or perfil.nombre=='dht11' and not 0<=v<=50) for c,v in valores.items()):
+                continue
+            etiquetas.append({'medido_en':fecha,'es_fallo':int(r['clasificacion']=='fallo_sensor'),
+                'cuarentena_id':r['cuarentena_id'],'decision_id':r['decision_id'],**valores})
+        except (KeyError,TypeError,ValueError):
+            continue
+    pd.DataFrame(etiquetas,columns=['medido_en','es_fallo','cuarentena_id','decision_id',*perfil.unidades]).to_csv(carpeta/'anomalias_revisadas.csv',index=False)
     horas.to_csv(carpeta / 'horas.csv')
     cobertura.to_csv(carpeta / 'completitud.csv')
     if 'PM25' in horas:
         objetivos_temporales(horas).to_csv(carpeta / 'objetivos_pm25.csv')
+    historial_fuente = bool(getattr(args, 'historial_fuente', False) and referencia)
+    if historial_fuente:
+        # Historial del proveedor, separado de originales del nodo y sin insertarlo en BD.
+        fuente = normalizada.copy()
+        fuente['PM1'] = (fuente.PM25 * .70).round(2)
+        fuente = fuente.reindex(columns=list(perfil.unidades))
+        fuente.to_csv(carpeta/'historial_fuente.csv')
+        guardar_json(carpeta/'historial_fuente_procedencia.json', referencia[1])
     if referencia:
         guardar_json(carpeta / 'referencia_respuesta.json', referencia[0])
         guardar_json(carpeta / 'referencia_procedencia.json', referencia[1])
@@ -64,9 +106,12 @@ def preparar(args):
         'intervalo_s': intervalo, 'intervalo_s_explicito': args.intervalo_s is not None,
         'completitud_minima': args.completitud, 'agregacion': 'media por intervalo y después por hora',
         'filas_extraidas': len(filas), 'horas_completas_multivariantes': int(horas.dropna().shape[0]),
+        'etiquetas_humanas_compatibles':len(etiquetas),
         'horas_validas_por_variable': {c: int(horas[c].count()) for c in horas},
         'referencia_modelada': bool(referencia), 'validacion_independiente': False,
         'calibracion_fisica_validada': False,
+        'historial_fuente': historial_fuente,
+        'procedencia_variables': ({'PM25':'Open-Meteo/CAMS','PM10':'Open-Meteo/CAMS','CO':'Open-Meteo/CAMS','PM1':'estimado: 0.70 × PM25'} if perfil.nombre=='contaminantes_simulados' else {c:'sensor físico' for c in perfil.unidades}),
         'procedencia_original': ('simulado; procedencia histórica no persistida; simulador actual usa Open-Meteo'
                                if meta['origen'] == 'simulado' else 'sensor físico; exactitud no validada'),
         'advertencias': ['No constituye un modelo apto ni una validación científica.',

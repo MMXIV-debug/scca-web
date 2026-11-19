@@ -1,0 +1,69 @@
+const { test } = require('node:test'),
+  assert = require('node:assert/strict');
+const { validarPolitica } = require('../services/politicasService');
+const { filtrosReportes } = require('../services/panelMlService');
+test('una política no rebaja los mínimos acordados ni mezcla variables de perfiles', () => {
+  const p = {
+    version_anterior: 1,
+    motivo: 'Revisión justificada de política',
+    completitud_min_pct: 75,
+    colocacion_dias: 30,
+    pares_minimos: 540,
+    test_pct: 30,
+    mejora_rmse_min_pct: 20,
+    sin_datos_seg: 300,
+    configuracion: {
+      factor_sin_datos: 2,
+      intervalos_sensor: { 1: 900 },
+      alertas_ambientales: [],
+      alertas_predictivas: [],
+    },
+  };
+  assert.equal(validarPolitica(p).pares_minimos, 540);
+  assert.throws(() => validarPolitica({ ...p, pares_minimos: 5 }));
+  assert.equal(validarPolitica({...p,colocacion_dias:1,pares_minimos:24,configuracion:{...p.configuracion,arranque_demo:true,anomalias:{muestras_entrenamiento:8,dias_minimos:1}}}).pares_minimos,24);
+  assert.throws(()=>validarPolitica({...p,colocacion_dias:1,pares_minimos:24}));
+  assert.throws(() =>
+    validarPolitica({ ...p, configuracion: { ...p.configuracion, intervalos_sensor: { 1: 901 } } }),
+  );
+  assert.throws(() =>
+    validarPolitica({
+      ...p,
+      configuracion: {
+        ...p.configuracion,
+        alertas_ambientales: [{ perfil: 'bme680', variable: 'PM25', periodo_h: 24, umbral: 10 }],
+      },
+    }),
+  );
+});
+test('el reporte acota el periodo y exige identidad del sensor', () => {
+  assert.equal(filtrosReportes({ sensorId: '1' })[0], 1);
+  assert.throws(() => filtrosReportes({ sensorId: 'abc' }));
+  assert.throws(() => filtrosReportes({ sensorId: '1', desde: '2026-02-01', hasta: '2026-01-01' }));
+});
+test('una pendiente cero se conserva y no se simula un modelo complejo', () => {
+  const corregir = require('../services/correctorStrategy');
+  assert.equal(
+    corregir.aplicar(12, {
+      algoritmo: 'regresion_lineal',
+      parametros: { pendiente: 0, intersepto: 3 },
+    }),
+    3,
+  );
+  assert.throws(()=>corregir.aplicar(12, { algoritmo: 'random_forest', parametros: { factor_ajuste: 0 } }));
+});
+test('el ciclo semanal usa lunes 10:00 de La Paz y recupera una ejecución perdida', () => {
+  const { semanaVigente } = require('../services/entrenamientoScheduler');
+  assert.equal(
+    new Date(semanaVigente(new Date('2026-11-23T13:59:59Z'))).toISOString(),
+    '2026-11-16T14:00:00.000Z',
+  );
+  assert.equal(
+    new Date(semanaVigente(new Date('2026-11-23T14:00:00Z'))).toISOString(),
+    '2026-11-23T14:00:00.000Z',
+  );
+  assert.equal(
+    new Date(semanaVigente(new Date('2026-11-25T02:00:00Z'))).toISOString(),
+    '2026-11-23T14:00:00.000Z',
+  );
+});

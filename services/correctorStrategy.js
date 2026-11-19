@@ -8,19 +8,24 @@ class EstrategiaCorreccion {
 // Estrategia A: Regresión Lineal (Calibración simple)
 class RegresionLinealStrategy extends EstrategiaCorreccion {
     corregir(valorOriginal, parametros) {
+        if (!Number.isFinite(valorOriginal) || !parametros || typeof parametros !== 'object') {
+            throw new TypeError('La corrección lineal requiere un valor y parámetros numéricos.');
+        }
         // Fórmula y = mx + b (pendiente e intersepto)
-        const m = parametros.pendiente || 1;
-        const b = parametros.intersepto || 0;
-        return (valorOriginal * m) + b;
+        const m = parametros.pendiente ?? 1;
+        const b = parametros.intersepto ?? 0;
+        const resultado = (valorOriginal * m) + b;
+        if (!Number.isFinite(m) || !Number.isFinite(b) || !Number.isFinite(resultado)) {
+            throw new TypeError('Parámetros lineales inválidos o resultado fuera de rango.');
+        }
+        return resultado;
     }
 }
 
 // Estrategia B: Modelos Complejos (XGBoost / Random Forest)
 class AlgoritmoComplejoStrategy extends EstrategiaCorreccion {
     corregir(valorOriginal, parametros) {
-        // Aquí iría una llamada a un microservicio en Python o un factor de inferencia
-        const factor = parametros.factor_ajuste || 1;
-        return valorOriginal * factor;
+        throw new Error('Random Forest y XGBoost requieren inferencia real mediante /api/modelo/evaluar. No se aplica un factor de ejemplo.');
     }
 }
 
@@ -39,8 +44,7 @@ class SelectorCorreccion {
         
         const estrategia = this.estrategias[modelo.algoritmo];
         if (!estrategia) {
-            console.warn(`No hay estrategia definida para el algoritmo: ${modelo.algoritmo}`);
-            return lecturaValor;
+            throw new Error('Algoritmo sin estrategia de inferencia: ' + modelo.algoritmo);
         }
 
         return estrategia.corregir(lecturaValor, modelo.parametros);

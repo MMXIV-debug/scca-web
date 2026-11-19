@@ -1,5 +1,7 @@
 # Evaluación y promoción local de modelos — entrega 2
 
+Actualización del 19/11: la compatibilidad con la tarea semanal, las etiquetas de anomalías y la política vigente están descritas en [Correcciones e integración](CORRECCIONES_2026-11-19.md). Las cifras de pruebas y límites de despliegue al final de esta entrega son históricos.
+
 El nuevo entrenador consume datasets del paso anterior. No lee ni escribe PostgreSQL y no reemplaza `modelos_guardados/detector_anomalias.joblib` ni `forecaster.joblib`. La activación aquí es **solo en el registro de demostración**. Desde la entrega 3, las rutas `/api/v2/modelos/*` consultan ese registro; las rutas legacy conservan sus archivos actuales. Ver `inferencia-versionada-ml.md`.
 
 ## Evaluar
@@ -13,7 +15,7 @@ Desde la raíz del proyecto, sustituir la ruta del dataset por una carpeta que c
 
 El pronóstico admite horizontes 1/3/6 horas por ejecución. Se calcula el objetivo por instante real. Se necesita suficiente historia posterior para construir las etiquetas; no se inventan las últimas horas del conjunto. El entrenamiento de calibración compara regresión lineal y Random Forest; pronóstico utiliza XGBoost. Las variables de entrada quedan registradas.
 
-Ejecutar simplemente `python entrenador.py` ahora muestra ayuda/error de argumentos y **no entrena**. Es un cambio deliberado frente al script antiguo que mezclaba datos y sobrescribía modelos sin evaluar. La tarea de Windows mencionada por el equipo debe adaptarse cuando se implemente el programador: este trabajo no crea ni modifica tareas.
+Ejecutar `python entrenador.py` sin argumentos ahora conserva compatibilidad con la tarea instalada: prepara datasets y evalúa candidatos bajo la política vigente, sin sobrescribir los artefactos legados. `python entrenador.py --help` muestra la ayuda. Ver la actualización del 19/11 para recuperación de una ejecución semanal perdida.
 
 ## Reglas y separación temporal
 
@@ -29,7 +31,7 @@ Ejecutar simplemente `python entrenador.py` ahora muestra ayuda/error de argumen
 
 Los criterios numéricos proceden del requisito de calibración. En pronóstico se utilizan de manera **provisional y conservadora para demostración**, no se presentan como una política de forecasting ya aprobada por el equipo. La promoción operacional requiere definir esa política y validación independiente.
 
-No se aplica RMSE a Isolation Forest. `--proposito anomalias` registra pendiente porque falta un conjunto etiquetado y una política de evaluación específica (falsos positivos/negativos y tratamiento de episodios reales). El detector actual de la API permanece intacto.
+No se aplica RMSE a Isolation Forest. Fuera del arranque, `--proposito anomalias` evalúa con etiquetas humanas y criterios específicos de precisión, recall y falsos positivos. Sin suficientes etiquetas e historial queda pendiente. Los episodios ambientales legítimos se distinguen de los fallos del sensor. En el modo `arranque_demo` autorizado se permite ajuste no supervisado con al menos 8 capturas completas, sin atribuir precisión ni recall; los pronósticos disponen de respaldo de persistencia explícito. Ver [estado de arranque](ARRANQUE_ML_2026-11-19.md). El detector legado permanece como respaldo identificado solo para contaminantes simulados.
 
 ## Registro y reversión
 

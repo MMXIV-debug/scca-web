@@ -9,11 +9,12 @@ import pandas as pd
 import sklearn
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
-from datasets import instante_utc, objetivos_temporales
+from datasets import instante_utc, objetivos_temporales, PERFILES, unidad_normalizada
 from gobernanza import POLITICA, Registro, ahora, decidir, escribir_json, hash_archivo, metricas
 
 
-def cargar_dataset(carpeta):
+def cargar_dataset(carpeta, politica=None):
+    politica = politica or POLITICA
     carpeta = Path(carpeta).resolve()
     manifiesto = json.loads((carpeta / 'manifiesto.json').read_text(encoding='utf-8'))
     if manifiesto['version_formato'] != 1:
@@ -34,13 +35,16 @@ def cargar_dataset(carpeta):
         if not tabla.index.equals(tabla.index.floor('h')):
             raise ValueError('Datos fuera de una ventana horaria.')
     columnas = list(manifiesto['unidades'])
+    perfil=PERFILES.get(manifiesto['perfil'])
+    if perfil is None or any(unidad_normalizada(manifiesto['unidades'][c])!=perfil.unidades.get(c) for c in columnas):
+        raise ValueError('Unidades o variables incompatibles con el perfil.')
     if list(horas.columns) != columnas or not cobertura.columns.equals(horas.columns) or not cobertura.index.equals(horas.index):
         raise ValueError('Cobertura, perfil y datos no coinciden.')
-    if manifiesto['completitud_minima'] < POLITICA['completitud_minima']:
+    if not np.isfinite(manifiesto['completitud_minima']) or not politica['completitud_minima']<=manifiesto['completitud_minima']<=1:
         raise ValueError('El conjunto usa menor completitud que la política de evaluación.')
     if not np.isfinite(cobertura.to_numpy()).all() or ((cobertura < 0) | (cobertura > 1)).any().any():
         raise ValueError('Cobertura inválida.')
-    horas = horas.where(cobertura >= POLITICA['completitud_minima'])
+    horas = horas.where(cobertura >= politica['completitud_minima'])
     if np.isinf(horas.to_numpy(dtype=float)).any():
         raise ValueError('El dataset contiene valores infinitos.')
     return manifiesto, horas
@@ -79,8 +83,9 @@ def construir_objetivo(carpeta, manifiesto, horas, proposito, variable, horizont
     return datos, None
 
 
-def dividir_temporal(datos):
-    corte = int(len(datos) * (1 - POLITICA['fraccion_prueba']))
+def dividir_temporal(datos, politica=None):
+    politica = politica or POLITICA
+    corte = int(len(datos) * (1 - politica['fraccion_prueba']))
     prueba = datos.iloc[corte:]
     entrenamiento = datos.iloc[:corte]
     entrenamiento = entrenamiento[entrenamiento.hora_objetivo < prueba.index[0]]
@@ -93,7 +98,11 @@ def dividir_temporal(datos):
     return entrenamiento, ajuste, validacion, prueba
 
 
-def candidatos(proposito):
+def candidatos(proposito, arranque=False, variable='PM25'):
+    if arranque and proposito == 'pronostico':
+        from modelos_arranque import Persistencia
+        return {'persistencia':Persistencia(variable), 'regresion_lineal':LinearRegression(),
+                'random_forest':RandomForestRegressor(n_estimators=80,max_depth=4,min_samples_leaf=3,random_state=42,n_jobs=1)}
     if proposito == 'calibracion':
         return {'regresion_lineal': LinearRegression(),
                 'random_forest': RandomForestRegressor(n_estimators=80, max_depth=8, random_state=42, n_jobs=1)}
@@ -102,10 +111,13 @@ def candidatos(proposito):
                                     max_depth=3, learning_rate=.05, random_state=42, n_jobs=1)}
 
 
-def evaluar_dataset(carpeta, raiz_registro, proposito='calibracion', variable='PM25', horizonte=1):
+def evaluar_dataset(carpeta, raiz_registro, proposito='calibracion', variable='PM25', horizonte=1, politica=None):
+    politica = dict(politica or POLITICA)
     if proposito not in ('calibracion', 'pronostico', 'anomalias'):
         raise ValueError('Propósito no compatible.')
-    manifiesto, horas = cargar_dataset(carpeta)
+    manifiesto, horas = cargar_dataset(carpeta, politica)
+    if proposito=='anomalias' and variable!=('PM25' if manifiesto['perfil']=='contaminantes_simulados' else 'TEMP'):
+        raise ValueError('El detector usa el perfil completo: identifica PM25 para contaminantes y TEMP para DHT11/BME680.')
     sensor = manifiesto['sensor']
     clave = f'nodo_{sensor["nodo_id"]}/sensor_{sensor["sensor_id"]}/{manifiesto["perfil"]}/{proposito}/{variable}'
     if proposito == 'pronostico':
@@ -113,7 +125,7 @@ def evaluar_dataset(carpeta, raiz_registro, proposito='calibracion', variable='P
     registro = Registro(raiz_registro)
     version = uuid.uuid4().hex
     informe = {'version': version, 'clave': clave, 'ambito': 'demostracion', 'estado': 'pendiente',
-               'creado_en': ahora(), 'politica': dict(POLITICA), 'proposito': proposito,
+               'creado_en': ahora(), 'politica': politica, 'proposito': proposito,
                'variable': variable, 'horizonte_h': horizonte if proposito == 'pronostico' else 0,
                'dataset_sha256': hash_archivo(Path(carpeta) / 'manifiesto.json'),
                'perfil': manifiesto['perfil'], 'sensor': {'sensor_id': sensor['sensor_id'], 'nodo_id': sensor['nodo_id']},
@@ -135,8 +147,13 @@ def evaluar_dataset(carpeta, raiz_registro, proposito='calibracion', variable='P
             return informe
 
         if proposito == 'anomalias':
-            informe['razones'] = ['sin_etiquetas_y_politica_especifica_para_anomalias']
-            return terminar()
+            from anomalias import evaluar_anomalias
+            return evaluar_anomalias(carpeta,manifiesto,politica,informe,registro,estado,terminar)
+        if proposito=='pronostico' and politica.get('arranque_demo') and manifiesto.get('historial_fuente'):
+            horas=pd.read_csv(Path(carpeta)/'historial_fuente.csv',index_col='medido_en')
+            horas.index=pd.DatetimeIndex([instante_utc(t) for t in horas.index],name='medido_en')
+            informe['procedencia_entrenamiento']='historial modelado Open-Meteo/CAMS; PM1 estimado'
+            informe['fuente_coordenadas']={k:float(sensor[k]) for k in ('latitud','longitud')}
         datos, motivo = construir_objetivo(carpeta, manifiesto, horas, proposito, variable, horizonte)
         if motivo:
             informe['razones'] = [motivo]
@@ -144,10 +161,17 @@ def evaluar_dataset(carpeta, raiz_registro, proposito='calibracion', variable='P
         informe['pares'] = len(datos)
         duracion = 0 if datos.empty else (datos.index[-1] - datos.index[0] + pd.Timedelta(hours=1)).total_seconds() / 86400
         informe['dias_cubiertos'] = duracion
-        if len(datos) < POLITICA['pares_minimos'] or duracion < POLITICA['dias_minimos']:
+        informe['cobertura_periodo'] = len(datos)/(duracion*24) if duracion else 0
+        if len(datos) < politica['pares_minimos'] or duracion < politica['dias_minimos']:
             informe['razones'] = ['pares_o_periodo_insuficientes']
             return terminar()
-        entrenamiento, ajuste, validacion, prueba = dividir_temporal(datos)
+        if informe['cobertura_periodo']<politica['completitud_minima']:
+            informe['razones']=['cobertura_temporal_insuficiente']
+            return terminar()
+        try:
+            entrenamiento, ajuste, validacion, prueba = dividir_temporal(datos, politica)
+        except ValueError:
+            informe['razones']=['datos_insuficientes_tras_separacion_temporal'];return terminar()
         columnas = [c for c in datos if c not in ('objetivo', 'hora_objetivo')]
         informe['variables_entrada'] = columnas
         informe['dominio'] = {c: [float(entrenamiento[c].min()), float(entrenamiento[c].max())] for c in columnas}
@@ -159,7 +183,7 @@ def evaluar_dataset(carpeta, raiz_registro, proposito='calibracion', variable='P
         if limite and inicio <= limite:
             informe['razones'] = ['prueba_final_consumida_se_requiere_periodo_posterior']
             return terminar()
-        modelos = candidatos(proposito)
+        modelos = candidatos(proposito, politica.get('arranque_demo',False),variable)
         resultados = {}
         for nombre, modelo in modelos.items():
             modelo.fit(ajuste[columnas], ajuste.objetivo)
@@ -182,8 +206,21 @@ def evaluar_dataset(carpeta, raiz_registro, proposito='calibracion', variable='P
                 if list(anterior.feature_names_in_) != columnas:
                     raise ValueError('Contrato del modelo vigente incompatible con el dataset.')
                 vigente = metricas(prueba.objetivo, anterior.predict(prueba[columnas]))
-            informe.update(decidir(base, nueva, vigente))
+            informe.update(decidir(base, nueva, vigente, politica))
             informe['metricas'] = {'base': base, 'candidato': nueva, 'vigente': vigente}
+            if proposito=='pronostico' and politica.get('arranque_demo'):
+                informe['modo_evaluacion']='arranque_historial_corto'
+                if informe['estado']!='apto_demo' or elegido=='persistencia':
+                    # Respaldo declarado de antemano, sin atribuirle aprendizaje ni mejora.
+                    from modelos_arranque import Persistencia
+                    if vigente is None or (base['rmse']<=vigente['rmse'] and base['mae']<=vigente['mae'] and abs(base['sesgo'])<=abs(vigente['sesgo'])):
+                        informe['evaluacion_candidato']={'algoritmo':elegido,'estado':informe['estado'],'razones':informe['razones']}
+                        modelo=Persistencia(variable).fit(entrenamiento[columnas])
+                        informe.update({'estado':'apto_demo','algoritmo':'persistencia','parametros':modelo.get_params(),
+                                        'razones':['respaldo_persistencia_sin_mejora_demostrada'],'tipo_pronostico':'respaldo_persistencia'})
+                        informe['metricas']['seleccionado']=base
+                else:
+                    informe['tipo_pronostico']='modelo_aprendido'
             artefacto = carpeta_version / 'modelo.joblib'
             joblib.dump(modelo, artefacto)
             informe['artefacto'] = artefacto.relative_to(registro.raiz).as_posix()

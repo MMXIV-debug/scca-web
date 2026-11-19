@@ -46,10 +46,12 @@ def insertar_lecturas():
                 if simbolo.replace("μ", "µ").replace("³", "3") != "µg/m3":
                     raise ValueError("Las variables del simulador deben usar unidades de microgramos por metro cúbico.")
 
-            lecturas = OpenMeteoAdapter().obtener_lecturas(
-                float(os.getenv("SIMULADOR_LATITUD", "-17.7833")),
-                float(os.getenv("SIMULADOR_LONGITUD", "-63.1821")),
-            )
+            cursor.execute("SELECT si.latitud,si.longitud FROM sensor s JOIN nodo n ON n.id=s.nodo_id JOIN sitio si ON si.id=n.sitio_id WHERE s.id=%s", (sensor_id,))
+            sitio=cursor.fetchone()
+            latitud,longitud=float(sitio[0]),float(sitio[1])
+            if abs(float(os.getenv('SIMULADOR_LATITUD',str(latitud)))-latitud)>.0001 or abs(float(os.getenv('SIMULADOR_LONGITUD',str(longitud)))-longitud)>.0001:
+                raise ValueError('Las coordenadas del simulador deben coincidir con el sitio del sensor.')
+            lecturas = OpenMeteoAdapter().obtener_lecturas(latitud,longitud)
             if lecturas is None:
                 raise RuntimeError("Open-Meteo no respondió. Comprueba la conexión a Internet.")
             medido_en = datetime.now(timezone.utc)

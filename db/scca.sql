@@ -247,7 +247,5 @@ REVOKE UPDATE, DELETE, TRUNCATE ON lectura_original, auditoria_evento FROM app_a
 
 
 
--- Cambios para la base de datos para cuentas Deshabilitadas o inactivas
-ALTER TABLE usuario DROP CONSTRAINT IF EXISTS usuario_estado_check;
-ALTER TABLE usuario ADD CONSTRAINT usuario_estado_check 
-  CHECK (estado IN ('pendiente', 'aprobado', 'rechazado', 'inactivo'));
+-- La columna usuario.estado se crea en 02_auth.sql.
+-- Aplicar 07_estado_usuarios.sql después de autenticación para admitir inactivo.

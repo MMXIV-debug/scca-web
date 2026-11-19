@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const token = localStorage.getItem('token');
   if (!token) {
     window.location.href = '/';
@@ -390,7 +391,7 @@ window.cargarTodo = async function() {
       const r = await fetch('/api/admin/sitios-fuentes', { headers: H });
       if (!r.ok) return;
       const datos = await r.json();
-      document.getElementById('badge-sitios').textContent = `${datos.length} nodos ubicados`;
+      document.getElementById('badge-sitios').textContent = `${new Set(datos.map(d=>d.nodo).filter(Boolean)).size} nodos ubicados`;
       
       // Asume que tienes un <tbody> con id="filas-sitios"
       const tb = document.getElementById('filas-sitios'); 
@@ -405,11 +406,11 @@ window.cargarTodo = async function() {
       datos.forEach(d => {
         tb.innerHTML += `
           <tr>
-            <td class="fw-bold">${d.sitio}</td>
+            <td class="fw-bold">${esc(d.sitio)}</td>
             <td>Lat: ${d.latitud}, Lon: ${d.longitud}</td>
-            <td>${d.nodo || '—'}</td>
+            <td>${esc(d.nodo || '—')}</td>
             <td>${d.origen === 'simulado' ? 'Simulado · Python' : 'Real'}</td>
-            <td><span class="badge bg-success-subtle text-success">${d.estado}</span></td>
+            <td><span class="badge bg-success-subtle text-success">${esc(d.estado)}</span></td>
           </tr>
         `;
       });
@@ -431,9 +432,9 @@ window.cargarTodo = async function() {
         const valor = d.ultima_medicion != null ? parseFloat(d.ultima_medicion).toFixed(2) : 'Sin datos';
         tb.innerHTML += `
           <tr>
-            <td class="fw-bold">${d.parametro}</td>
-            <td>${d.unidad}</td>
-            <td>${d.origen === 'simulado' ? 'Simulado · Python' : 'Real · Sensor físico'}</td>
+            <td class="fw-bold">${esc(d.parametro)}</td>
+            <td>${esc(d.unidad)}</td>
+            <td>${d.origen === 'simulado' ? (d.codigo === 'PM1' ? 'Estimado · 70 % de PM2.5' : 'Simulado · Open-Meteo') : 'Real · Sensor físico'}</td>
             <td class="${d.ultima_medicion != null ? 'text-success fw-bold' : 'text-muted'}">${valor}<small class="d-block text-secondary">${d.ultima_fecha ? new Date(d.ultima_fecha).toLocaleString("es-BO", { timeZone: "America/La_Paz" }) : ""}</small></td>
           </tr>
         `;

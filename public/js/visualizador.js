@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', async () => {
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const token = localStorage.getItem('token');
   
   if (!token) {
@@ -51,7 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('kpi-nodos-ubicados').textContent = datos.nodos_ubicados;
         
         const kpiIca = document.getElementById('kpi-mediciones-ica');
-        // Ahora mostramos el Número AQI y la Etiqueta oficial
+        // Indicador de demostración sobre horas completas, con procedencia explícita.
         if (datos.ica_score !== '-') {
           kpiIca.innerHTML = `
             <div class="d-flex align-items-center gap-2">
@@ -60,8 +61,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
           `;
         } else {
-          kpiIca.innerHTML = `<span class="badge bg-secondary p-2">Sin datos</span>`;
+          kpiIca.innerHTML = `<span class="badge bg-secondary p-2">${esc(datos.ica_estado)}</span>`;
         }
+        const detalle=document.createElement('small');detalle.className='d-block text-secondary mt-1';detalle.textContent=`PM2.5 · últimas 24 horas completas · ${datos.horas_validas}/24 horas válidas`+(datos.fuente?` · nodo ${datos.fuente.nodo_id}, sensor ${datos.fuente.sensor_id}, ${datos.fuente.origen}`:'')+' · sin calibración física validada';kpiIca.append(detalle);
 
       } catch (e) {
         console.error(e);
@@ -92,11 +94,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       datos.forEach(d => {
         tb.innerHTML += `
           <tr>
-            <td class="fw-bold">${d.sitio}</td>
+            <td class="fw-bold">${esc(d.sitio)}</td>
             <td>Lat: ${d.latitud}, Lon: ${d.longitud}</td>
-            <td>${d.nodo || '—'}</td>
+            <td>${esc(d.nodo || '—')}</td>
             <td>${d.origen === 'simulado' ? 'Simulado' : 'Real'}</td>
-            <td><span class="badge bg-success-subtle text-success">${d.estado}</span></td>
+            <td><span class="badge bg-success-subtle text-success">${esc(d.estado)}</span></td>
           </tr>
         `;
       });
@@ -117,8 +119,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const valor = d.ultima_medicion != null ? parseFloat(d.ultima_medicion).toFixed(2) : 'Sin datos';
         tb.innerHTML += `
           <tr>
-            <td class="fw-bold">${d.parametro}</td>
-            <td>${d.unidad}</td>
+            <td class="fw-bold">${esc(d.parametro)}</td>
+            <td>${esc(d.unidad)}</td>
             <td>${d.origen === 'simulado' ? 'Simulado' : 'Real · Sensor físico'}</td>
             <td class="${d.ultima_medicion != null ? 'text-success fw-bold' : 'text-muted'}">${valor}<small class="d-block text-secondary">${d.ultima_fecha ? new Date(d.ultima_fecha).toLocaleString("es-BO", { timeZone: "America/La_Paz" }) : ""}</small></td>
           </tr>
@@ -166,12 +168,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // porVariable['PM25']['2026-11-13T00:00:00.000Z'] = valor
       const porVariable = {};
-      filas.forEach(f => { (porVariable[f.codigo] ??= {})[f.hora] = f.valor; });
+      filas.forEach(f => { (porVariable[f.sensor_id+'/'+f.codigo] ??= {})[f.hora] = f.valor; });
 
       CONFIG_GRAFICOS.forEach(cfg => {
-        const datasets = cfg.series.map(s => ({
-          label: s.etiqueta,
-          data: horas.map(h => porVariable[s.codigo]?.[h] ?? null),
+        const datasets = cfg.series.flatMap(s => [...new Map(filas.filter(f=>f.codigo===s.codigo).map(f=>[f.sensor_id,f])).values()].map(f=>({
+          label: `${s.etiqueta} · nodo ${f.nodo_id}, sensor ${f.sensor_id}, ${f.origen}`,
+          data: horas.map(h => porVariable[f.sensor_id+'/'+s.codigo]?.[h] ?? null),
           borderColor: s.color,
           backgroundColor: s.color,
           yAxisID: s.eje || 'y',
@@ -179,12 +181,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           borderWidth: 2,
           pointRadius: 0,
           pointHoverRadius: 5,
-          spanGaps: true        // une los huecos sin datos
-        }));
+          spanGaps: false       // no presentar huecos como mediciones continuas
+        })));
 
         if (graficos[cfg.id]) {              // ya existe: solo actualizar datos
           graficos[cfg.id].data.labels = etiquetas;
-          graficos[cfg.id].data.datasets.forEach((d, i) => d.data = datasets[i].data);
+          graficos[cfg.id].data.datasets = datasets;
           graficos[cfg.id].update('none');
           return;
         }
@@ -224,17 +226,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       const r = await fetch('/api/visualizador/semanal', { headers: H });
       if (!r.ok) return;
       const datos = await r.json();
-      const porCodigo = Object.fromEntries(datos.map(d => [d.codigo, d]));
       const tb = document.getElementById('filas-semanal');
       if (!tb) return;
-      tb.innerHTML = FILAS_SEMANAL.map(f => {
-        const d = porCodigo[f.codigo];
-        if (!d) return `<tr><td class="fw-bold">${f.nombre}</td><td class="text-end text-muted" colspan="2">${f.codigo === 'VOC' ? 'Próximamente' : 'Sin datos'}</td></tr>`;
-        return `<tr>
-          <td class="fw-bold">${f.nombre}</td>
+      tb.innerHTML = FILAS_SEMANAL.flatMap(f => {
+        const fuentes=datos.filter(d=>d.codigo===f.codigo);
+        if (!fuentes.length) return [`<tr><td class="fw-bold">${f.nombre}</td><td class="text-end text-muted" colspan="2">${f.codigo === 'VOC' ? 'Próximamente' : 'Sin cobertura suficiente'}</td></tr>`];
+        return fuentes.map(d=>`<tr>
+          <td class="fw-bold">${f.nombre}<small class="d-block text-secondary">Sensor ${d.sensor_id} · ${esc(d.origen)} · ${d.horas_validas} h válidas</small></td>
           <td class="text-end">${d.promedio} <small class="text-secondary">${f.unidad}</small></td>
           <td class="text-end small text-secondary">${d.minimo.toFixed(1)} – ${d.maximo.toFixed(1)}</td>
-        </tr>`;
+        </tr>`);
       }).join('');
     } catch (e) { console.error(e); }
   }
@@ -250,6 +251,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('carrusel-graficos')?.addEventListener('slid.bs.carousel', () => {
     Object.values(graficos).forEach(g => g.resize());
   });
+
+  async function cargarAlertas(){try{const r=await fetch('/api/visualizador/alertas',{headers:H});if(!r.ok)return;const datos=await r.json();let box=document.getElementById('avisos-alertas');if(!box){box=document.createElement('div');box.id='avisos-alertas';box.className='alert alert-warning';document.getElementById('seccion-resumen')?.prepend(box);}box.replaceChildren();box.hidden=!datos.items.length;for(const a of datos.items){const p=document.createElement('p');p.className='mb-1';p.textContent=`${a.tipo==='tecnica'?'Recepción de datos':'Umbral configurado'} · nodo ${a.nodo_id}: ${a.observacion}`;box.append(p);}}catch{}}
 
   try {
     const r = await fetch('/api/me', {
@@ -284,13 +287,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     cargarParametros();
     cargarGraficos();
     cargarSemanal();
+    cargarAlertas();
     let actualizando = false;
 
     setInterval(async () => {
       if (actualizando || document.hidden) return;
       actualizando = true;
       try {
-        await Promise.all([cargarResumen(), cargarSitios(), cargarParametros(), cargarGraficos(), cargarSemanal()]);
+        await Promise.all([cargarResumen(), cargarSitios(), cargarParametros(), cargarGraficos(), cargarSemanal(), cargarAlertas()]);
       } finally {
         actualizando = false;
       }

@@ -12,6 +12,14 @@ const pool = require('./db/database');
 const UsuarioService = require('./services/usuarioService'); // Aca se importa el facade que encapsula la lógica de negocio para usuarios
 
 app.use(express.json());
+// Compatibilidad con marcadores antiguos: toda la administración vive en dashboard.
+app.get('/cuarentena.html', (req, res) => res.redirect('/dashboard.html#seccion-cuarentena'));
+app.get('/alertas.html', (req, res) => res.redirect('/dashboard.html#seccion-alertas'));
+app.get('/administracion-ml.html', (req, res) => {
+  const secciones = { politicas: 'politicas', modelos: 'modelos', reportes: 'reportes' };
+  const seccion = Object.hasOwn(secciones, req.query.tab) ? secciones[req.query.tab] : 'politicas';
+  res.redirect('/dashboard.html#seccion-' + seccion);
+});
 app.use(express.static('public'));
 
 // ---------- Configuración de Swagger ----------
@@ -80,15 +88,21 @@ app.use('/api/admin/cuarentena', require('./services/cuarentenaService').crearRo
 app.use('/api/admin/alertas', require('./services/alertasService').crearRouterAlertas(pool, auth, soloAdmin));
 require('./services/alertasService').iniciarMonitorAlertas(pool);
 app.use('/api/admin/ml', require('./services/panelMlService').crearRouterPanelMl(pool, auth, soloAdmin));
+require('./services/procesamientoMlService').iniciarProcesamiento(pool);
+require('./services/alertasAmbientalesService').iniciarAmbientales(pool);
+require('./services/entrenamientoScheduler').iniciarEntrenamientoAutomatico();
+app.get('/api/visualizador/alertas',auth,async(req,res)=>{try{res.json({items:(await pool.query("SELECT id::text,tipo,nodo_id,regla,valor,calidad,periodo_ini,estado,observacion,evidencia FROM alerta WHERE estado IN ('abierta','atendida') ORDER BY generada_en DESC LIMIT 100")).rows});}catch{res.status(503).json({error:'Alertas no disponibles.'});}});
 function calcularAQI_EPA(pm25) {
+  // EPA 2024, PM2.5 24 h: https://www.epa.gov/system/files/documents/2024-02/pm-naaqs-air-quality-index-fact-sheet.pdf
+  if(!Number.isFinite(pm25)||pm25<0)return {score:'-',label:'Sin datos válidos',color:'secondary'};
   const c = Math.floor(pm25 * 10) / 10;
   const breakpoints = [
-    { cLow: 0.0, cHigh: 12.0, iLow: 0, iHigh: 50, label: 'Buena', color: 'success' },
-    { cLow: 12.1, cHigh: 35.4, iLow: 51, iHigh: 100, label: 'Moderada', color: 'warning' },
+    { cLow: 0.0, cHigh: 9.0, iLow: 0, iHigh: 50, label: 'Buena', color: 'success' },
+    { cLow: 9.1, cHigh: 35.4, iLow: 51, iHigh: 100, label: 'Moderada', color: 'warning' },
     { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150, label: 'Dañina (Grupos sensibles)', color: 'orange' },
-    { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200, label: 'Dañina', color: 'danger' },
-    { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300, label: 'Muy Dañina', color: 'purple' },
-    { cLow: 250.5, cHigh: 500.4, iLow: 301, iHigh: 500, label: 'Peligrosa', color: 'dark' }
+    { cLow: 55.5, cHigh: 125.4, iLow: 151, iHigh: 200, label: 'Dañina', color: 'danger' },
+    { cLow: 125.5, cHigh: 225.4, iLow: 201, iHigh: 300, label: 'Muy Dañina', color: 'purple' },
+    { cLow: 225.5, cHigh: 325.4, iLow: 301, iHigh: 500, label: 'Peligrosa', color: 'dark' }
   ];
   for (let bp of breakpoints) {
     if (c >= bp.cLow && c <= bp.cHigh) {
@@ -329,73 +343,30 @@ app.get('/api/admin/sitios-fuentes', auth, async (req, res) => {
 
 app.get('/api/admin/parametros', auth, async (req, res) => {
   try {
-    const { rows } = await pool.query(`SELECT v.nombre AS parametro, u.simbolo AS unidad, s.origen, s.modelo, (SELECT valor FROM lectura_original l WHERE l.sensor_id = s.id AND l.variable_id = v.id ORDER BY l.medido_en DESC, l.id DESC LIMIT 1) AS ultima_medicion, (SELECT medido_en FROM lectura_original l WHERE l.sensor_id = s.id AND l.variable_id = v.id ORDER BY l.medido_en DESC, l.id DESC LIMIT 1) AS ultima_fecha FROM variable v JOIN unidad u ON v.unidad_id = u.id JOIN sensor_variable sv ON sv.variable_id = v.id JOIN sensor s ON s.id = sv.sensor_id`);
+    const { rows } = await pool.query(`SELECT v.codigo, v.nombre AS parametro, u.simbolo AS unidad, s.origen, s.modelo, (SELECT valor FROM lectura_original l WHERE l.sensor_id = s.id AND l.variable_id = v.id ORDER BY l.medido_en DESC, l.id DESC LIMIT 1) AS ultima_medicion, (SELECT medido_en FROM lectura_original l WHERE l.sensor_id = s.id AND l.variable_id = v.id ORDER BY l.medido_en DESC, l.id DESC LIMIT 1) AS ultima_fecha FROM variable v JOIN unidad u ON v.unidad_id = u.id JOIN sensor_variable sv ON sv.variable_id = v.id JOIN sensor s ON s.id = sv.sensor_id`);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: 'Error cargando parámetros' }); }
 });
 
 app.get('/api/visualizador/resumen', auth, async (req, res) => {
-  try {
-    const sitiosQuery = await pool.query('SELECT COUNT(*) AS total FROM sitio');
-    const nodosQuery = await pool.query("SELECT COUNT(*) AS total FROM nodo WHERE estado = 'activo'");
-    const medicionesQuery = await pool.query(`SELECT v.codigo, l.valor FROM lectura_original l JOIN variable v ON l.variable_id = v.id WHERE v.codigo = 'PM25' ORDER BY l.medido_en DESC, l.id DESC LIMIT 1`);
-
-    let ica = 'Sin datos', color = 'secondary', aqiScore = '-';
-    if (medicionesQuery.rows.length > 0) {
-      const valores = {};
-      medicionesQuery.rows.forEach(r => valores[r.codigo] = parseFloat(r.valor));
-      if (valores['PM25'] !== undefined) {
-        const resultadoAQI = calcularAQI_EPA(valores['PM25']);
-        ica = resultadoAQI.label;
-        color = resultadoAQI.color;
-        aqiScore = resultadoAQI.score;
-      }
-    }
-    res.json({ sitios_definidos: parseInt(sitiosQuery.rows[0].total) || 0, nodos_ubicados: parseInt(nodosQuery.rows[0].total) || 0, ica_estado: ica, ica_color: color, ica_score: aqiScore });
-  } catch (e) { res.status(500).json({ error: 'Error interno' }); }
+  try{return res.json(await require('./services/seriesService').resumen(pool,calcularAQI_EPA,req.query));}
+  catch(e){return res.status(e.status||503).json({error:e.status?e.message:'No se pudo calcular el indicador horario.'});}
 });
 
 // ------------Grafico y media semanal------------------
-const VARIABLES_GRAFICO = ['PM1', 'PM25', 'PM10', 'CO', 'TEMP', 'HUM'];
+
 
 // Promedio por hora de cada variable en las ultimas N horas 
 app.get('/api/visualizador/series', auth, async (req, res) => {
   const horas = Math.min(Math.max(parseInt(req.query.horas) || 24, 1), 168);
-  try {
-    const { rows } = await pool.query(
-      `Select v.codigo,
-        date_trunc('hour', l.medido_en) AS hora,
-        AVG(l.valor)::float AS valor
-      FROM lectura_original l
-      JOIN variable v ON v.id = l.variable_id
-      WHERE v.codigo = ANY($1)
-        AND l.medido_en >= now() - make_interval(hours => $2)
-      GROUP BY v.codigo, hora
-      ORDER BY hora`,
-      [VARIABLES_GRAFICO, horas]
-    );
-    res.json(rows);
-  } catch (e) { res.status(500).json({ error: 'Error interno' }); }
+  try{return res.json(await require('./services/seriesService').horas(pool,horas,req.query));}
+  catch(e){return res.status(e.status||503).json({error:e.status?e.message:'No se pudo consultar la serie horaria.'});}
 });
 
 // Promedio, mínimo y máximo de los últimos 7 días por variable
 app.get('/api/visualizador/semanal', auth, async (req, res) => {
-  try {
-    const { rows } = await pool.query(
-      `SELECT v.codigo,
-              ROUND(AVG(l.valor), 2)::float AS promedio,
-              MIN(l.valor)::float AS minimo,
-              MAX(l.valor)::float AS maximo,
-              COUNT(*)::int AS lecturas
-         FROM lectura_original l
-         JOIN variable v ON v.id = l.variable_id
-        WHERE v.codigo = ANY($1)
-          AND l.medido_en >= now() - interval '7 days'
-        GROUP BY v.codigo`,
-      [VARIABLES_GRAFICO]
-    );
-    res.json(rows);
-  } catch (e) { res.status(500).json({ error: 'Error cargando media semanal' }); }
+  try{return res.json(await require('./services/seriesService').semanal(pool,req.query));}
+  catch(e){return res.status(e.status||503).json({error:e.status?e.message:'No se pudo consultar el promedio semanal.'});}
 });
 
 const PORT = process.env.PORT || 3000;

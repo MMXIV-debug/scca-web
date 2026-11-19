@@ -75,6 +75,20 @@ class CicloTests(unittest.TestCase):
         self.assertIn('prueba_final_consumida', repetir['razones'][0])
         self.assertEqual(Registro(self.registro).leer()['activos'], estado['activos'])
 
+    def test_pares_dispersos_no_sustituyen_cobertura_del_periodo(self):
+        datos=dataset_prueba(self.raiz/'dispersos',n=1440)
+        horas=pd.read_csv(datos/'horas.csv',index_col='medido_en')
+        mantener=np.linspace(0,1439,540,dtype=int)
+        horas.iloc[np.setdiff1d(np.arange(1440),mantener),:]=np.nan
+        horas.to_csv(datos/'horas.csv')
+        cobertura=pd.read_csv(datos/'completitud.csv',index_col='medido_en');cobertura.iloc[np.setdiff1d(np.arange(1440),mantener),:]=0;cobertura.to_csv(datos/'completitud.csv')
+        pares=pd.read_csv(datos/'pares_demostracion.csv').iloc[mantener];pares.to_csv(datos/'pares_demostracion.csv',index=False)
+        meta=json.loads((datos/'manifiesto.json').read_text())
+        for nombre in ['horas.csv','completitud.csv','pares_demostracion.csv']:meta['sha256'][nombre]=hash_archivo(datos/nombre)
+        escribir_json(datos/'manifiesto.json',meta)
+        r=evaluar_dataset(datos,self.registro)
+        self.assertEqual(r['estado'],'pendiente');self.assertIn('cobertura_temporal_insuficiente',r['razones'])
+
     def test_no_mezcla_sensores_en_registro(self):
         a = evaluar_dataset(self.datos, self.registro)
         b = evaluar_dataset(dataset_prueba(self.raiz / 'sensor2', sensor=2), self.registro)

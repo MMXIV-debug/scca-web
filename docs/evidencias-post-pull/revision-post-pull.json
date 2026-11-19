@@ -1,0 +1,345 @@
+{
+  "commit": "9841b803fe2ef6ae822ac16136a2775a507fd408",
+  "tablas": {
+    "sensor": {
+      "existe": true,
+      "filas": "2",
+      "permisos": {
+        "lectura": true,
+        "insercion": true,
+        "actualizacion": true
+      }
+    },
+    "nodo": {
+      "existe": true,
+      "filas": "1",
+      "permisos": {
+        "lectura": true,
+        "insercion": true,
+        "actualizacion": true
+      }
+    },
+    "lectura_original": {
+      "existe": true,
+      "filas": "572",
+      "permisos": {
+        "lectura": true,
+        "insercion": true,
+        "actualizacion": true
+      }
+    },
+    "lectura_cuarentena": {
+      "existe": true,
+      "filas": "0",
+      "permisos": {
+        "lectura": true,
+        "insercion": true,
+        "actualizacion": true
+      }
+    },
+    "referencia_lectura": {
+      "existe": true,
+      "filas": "0",
+      "permisos": {
+        "lectura": true,
+        "insercion": true,
+        "actualizacion": true
+      }
+    },
+    "lectura_corregida": {
+      "existe": true,
+      "filas": "0",
+      "permisos": {
+        "lectura": true,
+        "insercion": true,
+        "actualizacion": true
+      }
+    },
+    "modelo_ml": {
+      "existe": true,
+      "filas": "0",
+      "permisos": {
+        "lectura": true,
+        "insercion": true,
+        "actualizacion": true
+      }
+    },
+    "validacion_ml": {
+      "existe": true,
+      "filas": "0",
+      "permisos": {
+        "lectura": true,
+        "insercion": true,
+        "actualizacion": true
+      }
+    },
+    "politica_ml": {
+      "existe": true,
+      "filas": "0",
+      "permisos": {
+        "lectura": true,
+        "insercion": true,
+        "actualizacion": true
+      }
+    },
+    "alerta": {
+      "existe": true,
+      "filas": "0",
+      "permisos": {
+        "lectura": true,
+        "insercion": true,
+        "actualizacion": true
+      }
+    },
+    "auditoria_evento": {
+      "existe": true,
+      "filas": "4",
+      "permisos": {
+        "lectura": true,
+        "insercion": true,
+        "actualizacion": true
+      }
+    },
+    "ml_demo_version": {
+      "existe": true,
+      "filas": "0",
+      "permisos": {
+        "lectura": true,
+        "insercion": true,
+        "actualizacion": true
+      }
+    },
+    "ml_demo_resultado": {
+      "existe": true,
+      "filas": "0",
+      "permisos": {
+        "lectura": true,
+        "insercion": true,
+        "actualizacion": true
+      }
+    }
+  },
+  "solo_lectura": "on",
+  "sensores": [
+    {
+      "id": 1,
+      "nodo_id": 1,
+      "modelo": "Python Script",
+      "origen": "simulado",
+      "activo": true,
+      "intervalo_muestreo_s": 60,
+      "variables": [
+        {
+          "variable": "CO",
+          "unidad": "µg/m3"
+        },
+        {
+          "variable": "PM1",
+          "unidad": "µg/m3"
+        },
+        {
+          "variable": "PM10",
+          "unidad": "µg/m3"
+        },
+        {
+          "variable": "PM25",
+          "unidad": "µg/m3"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "nodo_id": 1,
+      "modelo": "DHT11",
+      "origen": "real",
+      "activo": true,
+      "intervalo_muestreo_s": 60,
+      "variables": [
+        {
+          "variable": "HUM",
+          "unidad": "%"
+        },
+        {
+          "variable": "TEMP",
+          "unidad": "°C"
+        }
+      ]
+    }
+  ],
+  "series": [
+    {
+      "sensor_id": 1,
+      "codigo": "CO",
+      "filas": "134",
+      "desde": "2026-11-04T14:59:54.830Z",
+      "hasta": "2026-11-19T03:54:17.088Z",
+      "horas_con_datos": "49"
+    },
+    {
+      "sensor_id": 1,
+      "codigo": "PM1",
+      "filas": "134",
+      "desde": "2026-11-04T14:59:54.830Z",
+      "hasta": "2026-11-19T03:54:17.088Z",
+      "horas_con_datos": "49"
+    },
+    {
+      "sensor_id": 1,
+      "codigo": "PM10",
+      "filas": "134",
+      "desde": "2026-11-04T14:59:54.830Z",
+      "hasta": "2026-11-19T03:54:17.088Z",
+      "horas_con_datos": "49"
+    },
+    {
+      "sensor_id": 1,
+      "codigo": "PM25",
+      "filas": "134",
+      "desde": "2026-11-04T14:59:54.830Z",
+      "hasta": "2026-11-19T03:54:17.088Z",
+      "horas_con_datos": "49"
+    },
+    {
+      "sensor_id": 2,
+      "codigo": "HUM",
+      "filas": "18",
+      "desde": "2026-11-17T15:42:17.000Z",
+      "hasta": "2026-11-17T15:59:28.000Z",
+      "horas_con_datos": "1"
+    },
+    {
+      "sensor_id": 2,
+      "codigo": "TEMP",
+      "filas": "18",
+      "desde": "2026-11-17T15:42:17.000Z",
+      "hasta": "2026-11-17T15:59:28.000Z",
+      "horas_con_datos": "1"
+    }
+  ],
+  "estados_usuario": [
+    {
+      "conname": "usuario_estado_check",
+      "definicion": "CHECK (((estado)::text = ANY (ARRAY[('pendiente'::character varying)::text, ('aprobado'::character varying)::text, ('rechazado'::character varying)::text, ('inactivo'::character varying)::text])))"
+    }
+  ],
+  "indices": [
+    {
+      "indexname": "alerta_pkey"
+    },
+    {
+      "indexname": "auditoria_evento_pkey"
+    },
+    {
+      "indexname": "ix_ml_demo_periodo"
+    },
+    {
+      "indexname": "ix_ml_demo_sensor"
+    },
+    {
+      "indexname": "lectura_cuarentena_pkey"
+    },
+    {
+      "indexname": "ml_demo_resultado_pkey"
+    },
+    {
+      "indexname": "ml_demo_resultado_version_periodo_inicio_entrada_sha256_key"
+    },
+    {
+      "indexname": "ml_demo_version_pkey"
+    },
+    {
+      "indexname": "ux_alerta_tecnica_sensor_abierta"
+    },
+    {
+      "indexname": "ux_cuarentena_decision"
+    }
+  ],
+  "politicas": [],
+  "http": [
+    {
+      "nombre": "web",
+      "status": 200
+    },
+    {
+      "nombre": "estado",
+      "status": 200,
+      "respuesta": {
+        "api": "disponible",
+        "postgresql": "conectado"
+      }
+    },
+    {
+      "nombre": "modelo",
+      "status": 200,
+      "respuesta": {
+        "disponible": true,
+        "variables": [
+          "CO",
+          "PM1",
+          "PM10",
+          "PM25"
+        ]
+      }
+    },
+    {
+      "nombre": "admin_sin_sesion",
+      "status": 401,
+      "respuesta": {
+        "error": "Sesión inválida"
+      }
+    },
+    {
+      "nombre": "pronostico_legacy",
+      "status": 422,
+      "respuesta": {
+        "detail": "Este modelo requiere otras variables de entrada; el pronóstico univariante no es compatible."
+      }
+    },
+    {
+      "nombre": "evaluacion_sensor_1",
+      "status": 200,
+      "respuesta": {
+        "estado": "sin_modelo",
+        "ambito": "demostracion",
+        "calibracion_fisica_validada": false,
+        "nodo_id": 1,
+        "sensor_id": 1,
+        "perfil": "contaminantes_simulados",
+        "proposito": "calibracion",
+        "variable": "PM25",
+        "horizonte_h": 0,
+        "modelo_version": null,
+        "variables_entrada": [],
+        "entrada_agregado_s": null,
+        "intervalo_s": null,
+        "completitud_minima": null,
+        "modelo_metadatos": null,
+        "valor": null,
+        "es_anomalia": null
+      }
+    },
+    {
+      "nombre": "evaluacion_sensor_2",
+      "status": 200,
+      "respuesta": {
+        "estado": "sin_modelo",
+        "ambito": "demostracion",
+        "calibracion_fisica_validada": false,
+        "nodo_id": 1,
+        "sensor_id": 2,
+        "perfil": "dht11",
+        "proposito": "calibracion",
+        "variable": "TEMP",
+        "horizonte_h": 0,
+        "modelo_version": null,
+        "variables_entrada": [],
+        "entrada_agregado_s": null,
+        "intervalo_s": null,
+        "completitud_minima": null,
+        "modelo_metadatos": null,
+        "valor": null,
+        "es_anomalia": null
+      }
+    }
+  ]
+}

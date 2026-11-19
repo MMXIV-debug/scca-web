@@ -11,6 +11,6 @@ El archivo `.env` real se conserva localmente y no se distribuye automáticament
 
 La API .NET recibe su conexión desde el iniciador, que convierte DATABASE_URL a ConnectionStrings__Postgres. No es necesario publicar contraseñas en appsettings.json. Mantener iguales las claves del ESP32 y de la API.
 
-Las migraciones04,05 y06 ya se confirmaron en la base compartida durante esta sesión; no importar un respaldo ni recrear la base para abrir el proyecto. Comprobar el destino antes de aplicar cualquier SQL. Las nuevas opciones de escritura permanecen desactivadas en la plantilla.
+Las migraciones 04–10 ya se confirmaron en la base compartida; no importar un respaldo ni recrear la base para abrir el proyecto. Comprobar el destino antes de aplicar cualquier SQL. Ver `CORRECCIONES_2026-11-19.md` para la configuración vigente. Las opciones que escriben resultados o ejecutan trabajo automático permanecen desactivadas en la plantilla de un equipo nuevo.
 
 Para Mateo: el propietario del entorno debe entregar por un canal privado las tres variables requeridas o una copia privada de `.env`. El código fuente, migraciones y archivos de dependencias están en Git; `.venv`, node_modules y bin no deben copiarse entre computadoras.

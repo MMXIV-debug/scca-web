@@ -27,7 +27,7 @@ function detener(codigo = 0) {
   }
 }
 
-function ejecutar(nombre, comando, argumentos, entorno, persistente = true) {
+function ejecutar(nombre, comando, argumentos, entorno, persistente = true, critico = true) {
   if (cerrando) throw new Error('Inicio cancelado.');
   console.log(`Iniciando ${nombre}...`);
   const hijo = spawn(comando, argumentos, {
@@ -36,13 +36,13 @@ function ejecutar(nombre, comando, argumentos, entorno, persistente = true) {
   if (hijo.pid) procesos.add(hijo);
   hijo.on('error', () => {
     console.error(`No se pudo ejecutar ${nombre}. Comprueba su instalación.`);
-    detener(1);
+    if (critico) detener(1);
   });
   hijo.on('exit', codigo => {
     procesos.delete(hijo);
     if (!cerrando && persistente) {
       console.error(`${nombre} terminó inesperadamente (${codigo}).`);
-      detener(1);
+      if (critico) detener(1);
     }
   });
   return hijo;
@@ -52,7 +52,7 @@ async function esperar(url, validar) {
   const limite = Date.now() + 60000;
   while (!cerrando && Date.now() < limite) {
     try {
-      const respuesta = await fetch(url, { signal: AbortSignal.timeout(2000) });
+      const respuesta = await fetch(url, { signal: AbortSignal.timeout(10000) });
       if (respuesta.ok && await validar(respuesta)) return;
     } catch { /* El servicio todavía puede estar arrancando. */ }
     await pausa(500);
@@ -112,19 +112,18 @@ async function iniciar() {
   const compilacion = ejecutar('compilación de la API', 'dotnet', ['build', 'backend/Scca.Api/Scca.Api.csproj', '-o', salida, '--nologo'], entorno, false);
   const [codigo] = await once(compilacion, 'exit');
   if (codigo !== 0) throw new Error('Falló la compilación de la API.');
-  ejecutar('Python/ML', python, ['-m', 'uvicorn', 'inferencia:app', '--app-dir', 'ml_engine', '--host', '127.0.0.1', '--port', String(ml)], entorno);
-  await esperar(`http://127.0.0.1:${ml}/api/modelo`, async r => (await r.json()).disponible === true);
+  ejecutar('Python/ML', python, ['-m', 'uvicorn', 'inferencia:app', '--app-dir', 'ml_engine', '--host', '127.0.0.1', '--port', String(ml)], entorno, true, false);
   ejecutar('API', 'dotnet', [path.join(salida, 'Scca.Api.dll'), '--urls', `http://0.0.0.0:${api}`], entorno);
   await esperar(`http://127.0.0.1:${api}/api/estado`, async r => (await r.json()).postgresql === 'conectado');
-  await esperar(`http://127.0.0.1:${api}/api/modelo`, async r => (await r.json()).disponible === true);
-  const pruebaSimulador = ejecutar('primera muestra del simulador', python, ['-u', 'python/simulador.py', '--una-vez'], entorno, false);
-  const [codigoSimulador] = await once(pruebaSimulador, 'exit');
-  if (codigoSimulador !== 0) throw new Error('El simulador no pudo guardar su primera muestra. Revisa los mensajes anteriores.');
-  ejecutar('simulador continuo', python, ['-u', 'python/simulador.py', '--esperar-primera'], entorno);
   ejecutar('página web', process.execPath, ['server.js'], entorno);
   await esperar(`http://127.0.0.1:${web}/`, async r => (await r.text()).toLowerCase().includes('<html'));
   const url = `http://localhost:${web}/`;
   console.log(`SCCA listo: ${url}\nSwagger: http://localhost:${api}/swagger\nMantén esta ventana abierta. Ctrl+C detiene los servicios iniciados aquí.`);
+  // El proveedor de demostración no determina la disponibilidad del sistema.
+  // Su bucle maneja fallos y reintenta; no se exige una inserción para abrir la web.
+  if (!process.argv.includes('--sin-simulador') && process.env.SIMULADOR_HABILITADO !== 'false') {
+    ejecutar('simulador continuo', python, ['-u', 'python/simulador.py'], entorno, true, false);
+  }
   if (!process.argv.includes('--sin-navegador')) {
     const comando = process.platform === 'win32' ? 'explorer.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
     spawn(comando, [url], { windowsHide: true, stdio: 'ignore' }).on('error', () => console.log(`Abre ${url} en tu navegador.`));

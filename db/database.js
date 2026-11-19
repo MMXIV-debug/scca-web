@@ -5,7 +5,20 @@ class Database {
   constructor() {
     // Si la instancia ya existe, no creamos una nueva
     if (!Database.instance) {
-      this.pool = new Pool({ connectionString: process.env.DATABASE_URL });
+      this.pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        connectionTimeoutMillis: 5000,
+        query_timeout: 15000,
+        statement_timeout: 15000,
+        idleTimeoutMillis: 30000
+      });
+      // pg retira del pool una conexión inactiva rota. El evento no pertenece a
+      // ninguna petición y, sin listener, Node termina el proceso completo.
+      this.pool.on('error', error => {
+        console.error('Conexión PostgreSQL interrumpida; se reintentará en la siguiente solicitud.', {
+          codigo: error.code || 'CONEXION_INTERRUMPIDA'
+        });
+      });
       Database.instance = this;
     }
     return Database.instance;

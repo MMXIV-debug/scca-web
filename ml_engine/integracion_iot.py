@@ -41,12 +41,14 @@ def evaluar(detector, valores):
     return bool(prediccion[0] == -1)
 
 
-def crear_router(obtener_detector):
+def crear_router(obtener_detector, obtener_version=lambda: None):
     router = APIRouter()
 
     @router.get("/api/modelo")
     def informacion_modelo():
-        return {"disponible": True, "variables": variables_del_modelo(obtener_detector())}
+        return {"disponible": True, "variables": variables_del_modelo(obtener_detector()),
+                "modelo_version": obtener_version(), "perfil": "contaminantes_simulados",
+                "validacion_independiente": False}
 
     @router.post("/api/predict/muestra")
     def evaluar_muestra(muestra: MuestraModelo):
@@ -54,6 +56,10 @@ def crear_router(obtener_detector):
         return {
             "es_anomalia": es_anomalia,
             "accion_sugerida": "cuarentena" if es_anomalia else "guardar_original",
+            "modelo_version": obtener_version(),
+            "perfil": "contaminantes_simulados",
+            "estado": "evaluado_legacy",
+            "validacion_independiente": False,
         }
 
     return router

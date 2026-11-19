@@ -20,6 +20,7 @@ public sealed class SolicitudEvaluacionMl
     [Required, StringLength(20, MinimumLength = 1)]
     public required string Variable { get; init; }
     public int HorizonteH { get; init; }
+    [System.Text.Json.Serialization.JsonConverter(typeof(FechaConZonaConverter))]
     public DateTimeOffset HoraInicio { get; init; }
     public bool GuardarResultado { get; init; }
 }
@@ -129,6 +130,8 @@ public sealed class EvaluacionMlController(
             };
             if (!unidades.ContainsKey(solicitud.Variable))
                 return UnprocessableEntity(new { error = "La variable no pertenece al perfil del sensor." });
+            if (solicitud.Proposito == "anomalias" && solicitud.Variable != (perfil == "contaminantes_simulados" ? "PM25" : "TEMP"))
+                return UnprocessableEntity(new { error = "El detector evalúa el perfil completo: seleccionar PM25 para contaminantes o TEMP para perfiles físicos." });
             var catalogo = new Dictionary<string, string>();
             await using (var command = new NpgsqlCommand("""
                 SELECT v.codigo, u.simbolo FROM public.sensor_variable sv
@@ -164,10 +167,23 @@ public sealed class EvaluacionMlController(
                 return Problem(statusCode: 502, title: "Selección de respuesta ML incompatible.");
             if (estado.GetProperty("estado").GetString() == "sin_modelo")
                 return Ok(estado);
+            if (solicitud.Proposito == "anomalias") return Ok(estado); // detector instantáneo: no aplicar a una media horaria
             if (estado.GetProperty("estado").GetString() != "disponible_demo"
                 || estado.GetProperty("entrada_agregado_s").GetInt32() != 3600)
                 return Problem(statusCode: 502, title: "Contrato temporal ML incompatible.");
             int? intervaloConfigurado = configuration.GetValue<int?>($"Ml:IntervalosSensor:{solicitud.SensorId}");
+            var arranqueDemo = false;
+            if (configuration.GetValue<bool>("Ml:PoliticaVersionadaHabilitada"))
+            {
+                await using var policyCommand = new NpgsqlCommand("SELECT configuracion FROM public.politica_ml WHERE vigente_hasta IS NULL ORDER BY version DESC LIMIT 1", connection, transaction);
+                var policyJson = await policyCommand.ExecuteScalarAsync(cancellationToken) as string;
+                if (policyJson is null) return Problem(statusCode:503,title:"No hay política vigente.");
+                using var policy = JsonDocument.Parse(policyJson);
+                arranqueDemo = policy.RootElement.TryGetProperty("arranque_demo",out var arranque) && arranque.ValueKind == JsonValueKind.True;
+                if (policy.RootElement.TryGetProperty("intervalos_sensor",out var intervalos)
+                    && intervalos.TryGetProperty(solicitud.SensorId.ToString(),out var frecuencia))
+                    intervaloConfigurado=frecuencia.GetInt32();
+            }
             if (origen == "simulado" && intervaloConfigurado is null)
                 return UnprocessableEntity(new { error = "Configura Ml:IntervalosSensor para la frecuencia histórica del simulador." });
             var intervalo = intervaloConfigurado ?? intervaloNodo;
@@ -208,15 +224,23 @@ public sealed class EvaluacionMlController(
                 }
             }
             await transaction.CommitAsync(cancellationToken); // transacción de solo lectura
-            if (columnas.Any(c => cobertura[c] < coberturaMinima || !valores.ContainsKey(c)))
+            var incompleta = columnas.Any(c => cobertura[c] < coberturaMinima || !valores.ContainsKey(c));
+            var usarFuente = incompleta && arranqueDemo && origen == "simulado" && solicitud.Proposito == "pronostico";
+            if (incompleta && !usarFuente)
                 return Ok(new { estado = "datos_incompletos", ambito = "demostracion", sensor_id = solicitud.SensorId,
                     nodo_id = nodoId, perfil, proposito = solicitud.Proposito, variable = solicitud.Variable,
                     horizonte_h = solicitud.HorizonteH,
                     modelo_version = estado.GetProperty("modelo_version").GetString(), cobertura,
                     valor = (double?)null, es_anomalia = (bool?)null, calibracion_fisica_validada = false });
-            using var request = new HttpRequestMessage(HttpMethod.Post, "api/v2/modelos/inferir")
+            using var request = new HttpRequestMessage(HttpMethod.Post, usarFuente ? "api/v2/modelos/inferir-fuente" : "api/v2/modelos/inferir")
             {
-                Content = JsonContent.Create(new
+                Content = usarFuente ? JsonContent.Create(new
+                {
+                    seleccion.nodo_id, seleccion.sensor_id, seleccion.perfil, seleccion.proposito,
+                    seleccion.variable, seleccion.horizonte_h,
+                    modelo_version = estado.GetProperty("modelo_version").GetString(),
+                    periodo_inicio = inicio, periodo_fin = fin
+                }) : JsonContent.Create(new
                 {
                     seleccion.nodo_id, seleccion.sensor_id, seleccion.perfil, seleccion.proposito,
                     seleccion.variable, seleccion.horizonte_h, valores,
@@ -242,7 +266,8 @@ public sealed class EvaluacionMlController(
             {
                 var resultadoId = await ResultadosMlStore.Guardar(database, solicitud.SensorId, nodoId,
                     perfil, solicitud.Proposito, solicitud.Variable, solicitud.HorizonteH, inicio, fin,
-                    ResultadosMlStore.EntradaCanonica(valores, cobertura, intervalo, coberturaMinima), resultado, cancellationToken);
+                    usarFuente ? JsonSerializer.Serialize(new { origen = "historial_modelado_Open-Meteo", valores = resultado.GetProperty("entrada_fuente").GetProperty("valores"), cobertura_original = cobertura, intervalo_s = intervalo, completitud_minima = coberturaMinima })
+                        : ResultadosMlStore.EntradaCanonica(valores, cobertura, intervalo, coberturaMinima), resultado, cancellationToken);
                 var salida = JsonNode.Parse(resultado.GetRawText())!.AsObject();
                 salida["persistido"] = true;
                 salida["resultado_id"] = resultadoId;

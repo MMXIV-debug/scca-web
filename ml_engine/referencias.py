@@ -9,7 +9,7 @@ URL = 'https://air-quality-api.open-meteo.com/v1/air-quality'
 VARIABLES = {'PM25': 'pm2_5', 'PM10': 'pm10', 'CO': 'carbon_monoxide'}
 
 
-def descargar_referencia(latitud, longitud, desde, hasta):
+def descargar_referencia(latitud, longitud, desde, hasta, timeout=30):
     if not -90 <= latitud <= 90 or not -180 <= longitud <= 180:
         raise ValueError('Coordenadas inválidas.')
     parametros = {'latitude': latitud, 'longitude': longitud,
@@ -17,7 +17,7 @@ def descargar_referencia(latitud, longitud, desde, hasta):
                   'domains': 'cams_global', 'timeformat': 'unixtime',
                   'start_date': desde.date().isoformat(),
                   'end_date': (hasta - pd.Timedelta(seconds=1)).date().isoformat()}
-    respuesta = requests.get(URL, params=parametros, timeout=30)
+    respuesta = requests.get(URL, params=parametros, timeout=timeout)
     respuesta.raise_for_status()
     datos = respuesta.json()
     meta = {'fuente': 'Open-Meteo/CAMS', 'url': URL, 'parametros': parametros,

@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  const $ = id => document.getElementById(id), token = localStorage.getItem('token');
+  if (!document.getElementById('seccion-alertas')) return;
+  const $ = id => document.getElementById('seccion-alertas-' + id), token = localStorage.getItem('token');
   let cursor = '0', siguiente = '0';
   const mensaje = t => { $('mensaje').textContent = t; };
   async function api(url, body) {
@@ -15,7 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       tr.children[1].textContent = `${a.regla}: ${a.observacion || ''}`;
       tr.children[2].textContent = `${a.estado} · ${new Date(a.generada_en).toLocaleString()}`;
       if (a.estado === 'abierta') {
-        const motivo = document.createElement('textarea'); motivo.placeholder = 'Describe la intervención (mínimo 10 caracteres)'; motivo.setAttribute('aria-label', 'Motivo para alerta ' + a.id); motivo.maxLength = 1000;
+        const motivo = document.createElement('textarea'); motivo.className = 'form-control mb-2'; motivo.placeholder = 'Describe la intervención (mínimo 10 caracteres)'; motivo.setAttribute('aria-label', 'Motivo para alerta ' + a.id); motivo.maxLength = 1000;
         const boton = document.createElement('button'); boton.textContent = 'Registrar atención'; boton.className = 'btn btn-primary btn-sm';
         boton.addEventListener('click', async () => {
           if (motivo.value.trim().length < 10) return mensaje('Describe el motivo con al menos 10 caracteres.');

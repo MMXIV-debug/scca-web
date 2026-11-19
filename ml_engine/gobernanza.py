@@ -48,17 +48,18 @@ def metricas(real, predicho):
             'r2': None if denominador == 0 else float(1 - np.sum(error ** 2) / denominador)}
 
 
-def decidir(base, candidato, vigente=None):
+def decidir(base, candidato, vigente=None, politica=None):
     """El vigente se evalúa en las MISMAS filas finales que el candidato."""
+    politica = politica or POLITICA
     razones = []
-    tolerancia = POLITICA['tolerancia_error_cero']
+    tolerancia = politica['tolerancia_error_cero']
     if base['rmse'] == 0:
         if candidato['rmse'] > tolerancia:
             razones.append('error_original_cero_supera_tolerancia')
         mejora = None
     else:
         mejora = 1 - candidato['rmse'] / base['rmse']
-        if candidato['rmse'] > base['rmse'] * (1 - POLITICA['mejora_rmse_minima']):
+        if candidato['rmse'] > base['rmse'] * (1 - politica['mejora_rmse_minima']):
             razones.append('mejora_rmse_insuficiente')
     if candidato['mae'] > base['mae']:
         razones.append('mae_empeora')
