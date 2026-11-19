@@ -1,0 +1,20 @@
+document.addEventListener('DOMContentLoaded',async()=>{
+ const $=id=>document.getElementById(id),token=localStorage.getItem('token');
+ const tab=new URLSearchParams(location.search).get('tab')||'politicas';let items=[],cursor='0',next='0';
+ const config={politicas:{titulo:'Políticas',descripcion:'Políticas registradas en la base. Vista de consulta: la edición y el versionado desde el panel siguen pendientes.',columnas:['version','agregado_min','completitud_min_pct','pares_minimos','test_pct','mejora_rmse_min_pct','sin_datos_seg','vigente_desde']},modelos:{titulo:'Machine Learning',descripcion:'Versiones de demostración utilizadas en resultados guardados. Esta lista no representa todos los candidatos locales ni confirma qué modelo está activo.',columnas:['version','sensor_id','nodo_id','perfil','proposito','horizonte_h','registrado_en','metadatos']},reportes:{titulo:'Reportes ML',descripcion:'Resultados horarios de demostración guardados por sensor. Los datos no acreditan calibración física validada. Cada descarga incluye la página visible, hasta 100 registros.',columnas:['id','version','proposito','horizonte_h','periodo_inicio','periodo_fin','resultado']}};
+ const c=config[tab];if(!c){$('mensaje').textContent='Sección inválida.';return;}
+ async function api(url){const r=await fetch(url,{headers:{Authorization:'Bearer '+token}});const d=await r.json();if(!r.ok)throw Error(d.error||'No se pudo consultar.');return d;}
+ const texto=v=>v==null?'—':typeof v==='object'?JSON.stringify(v):String(v);
+ async function cargar(){try{
+ let url='/api/admin/ml/'+tab;if(tab==='reportes'){if(!$('sensor').checkValidity())return $('sensor').reportValidity();url+=`?sensorId=${encodeURIComponent($('sensor').value)}&despuesDe=${cursor}`;}
+ const d=await api(url);items=d.items;next=d.siguiente_despues_de||'0';$('filas').replaceChildren();
+ for(const item of items){const tr=document.createElement('tr');for(const col of c.columnas){const td=document.createElement('td');if(typeof item[col]==='object'&&item[col]){const details=document.createElement('details'),summary=document.createElement('summary'),pre=document.createElement('pre');summary.textContent='Ver detalles';pre.textContent=JSON.stringify(item[col],null,2);details.append(summary,pre);td.append(details);}else td.textContent=texto(item[col]);tr.append(td);}$('filas').append(tr);}
+ $('mensaje').textContent=items.length?`${items.length} registros en esta página.`:'No hay registros disponibles.';$('exportar').disabled=!items.length;$('siguiente').hidden=tab!=='reportes'||items.length<100;
+ }catch(e){items=[];$('filas').replaceChildren();$('exportar').disabled=true;$('mensaje').textContent=e.message;}}
+ $('titulo').textContent=c.titulo;$('descripcion').textContent=c.descripcion;
+ const tr=document.createElement('tr');for(const col of c.columnas){const th=document.createElement('th');th.textContent=col.replaceAll('_',' ');tr.append(th);}$('cabecera').append(tr);
+ document.querySelectorAll('nav a').forEach(a=>{if(a.href===location.href){a.classList.add('active');a.setAttribute('aria-current','page');}});
+ $('filtro').hidden=tab!=='reportes';$('actualizar').onclick=()=>{cursor='0';cargar();};$('filtro').onsubmit=e=>{e.preventDefault();cursor='0';cargar();};$('siguiente').onclick=()=>{cursor=next;cargar();};
+ $('exportar').onclick=()=>{const cell=v=>'"'+texto(v).replace(/^[=+@-]/,"'$&").replaceAll('"','""')+'"';const csv=[c.columnas.map(cell).join(','),...items.map(i=>c.columnas.map(k=>cell(i[k])).join(','))].join('\r\n');const url=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='reporte-ml-pagina.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+ try{const me=await api('/api/me');if(me.rol!=='Administrador')throw Error('Se requiere sesión de Administrador.');$('contenido').hidden=false;if(tab!=='reportes')await cargar();else $('mensaje').textContent='Indica el ID del sensor para consultar.';}catch(e){$('mensaje').textContent=e.message;}
+});

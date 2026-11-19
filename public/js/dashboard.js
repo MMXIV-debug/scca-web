@@ -358,7 +358,7 @@ window.cargarTodo = async function() {
   // Desplazar el contenedor de contenido, también al repetir una pestaña.
   function configurarNavegacion() {
     const contenido = document.querySelector('.dashboard-content');
-    const enlaces = [...document.querySelectorAll('.sidebar-link')];
+    const enlaces = [...document.querySelectorAll('.sidebar-link')].filter(a => (a.getAttribute('href') || '').startsWith('#'));
     function mostrar(hash, animar = true) {
       const destino = document.getElementById(hash.slice(1));
       if (!destino || !contenido.contains(destino)) return;

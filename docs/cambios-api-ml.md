@@ -154,3 +154,13 @@ Tres rutas Node nuevas: GET /api/admin/alertas, POST /api/admin/alertas/comproba
 Migración 06_alertas_tecnicas.sql: solo índice único parcial en alerta para evitar duplicados de interrupciones. No tablas nuevas y no aplicación en nube. Usa auditoria_evento existente para creación, atención y resolución. Revisa cada sensor, no actividad global del nodo; cuarentena recibida también cuenta como comunicación. No modifica estado administrativo de nodo.
 
 Pantalla alertas.html/js con enlace admin; filtro, paginación, comprobación y atención con motivo. Alertas técnicas se resuelven por recepción restablecida o salida de supervisión. No implementa correo, banner visualizador, alertas EPA ni predicciones todavía. Guía docs/alertas-tecnicas.md. Pruebas locales de servicio/DB correctas; revisión visual pendiente. Esta entrega aún no publicada.
+
+## Integración autorizada a main y cuatro pestañas administrativas
+
+Por instrucción explícita del usuario se integró Machine-Learning en main, junto con los commits nuevos del equipo, en 95c018a. Se mantienen excluidos .env y respaldos. No se ejecutaron migraciones en nube.
+
+Se agregan tres rutas Node JWT/Administrador de solo lectura: GET /api/admin/ml/politicas, /modelos y /reportes?sensorId=ID&despuesDe=ID. Políticas consulta politica_ml; modelos/reportes consultan tablas ml_demo_* de la migración04, con mensajes de error si no están disponibles. Modelos lista versiones usadas, no afirma cuál está activa. Reportes pagina hasta100 y permite descargar CSV de la página visible. No se envían claves IoT al navegador.
+
+Dashboard administrador incorpora Políticas, Machine Learning, Alertas y Reportes ML. Se corrigió la navegación para interceptar solo enlaces internos #; los enlaces a otras páginas funcionan normalmente. Se conserva cuarentena. No se modificó dashboard visualizador.
+
+Alcance: navegación y consulta; edición de políticas, ejecución de entrenamiento desde panel y alertas ambientales/predictivas siguen pendientes. Pantallas nuevas sin revisión visual automatizada. Sintaxis JS correcta y diez verificaciones HTTP con base simulada correctas (401/403/200 y filtro inválido). Sin acceso a nube.
