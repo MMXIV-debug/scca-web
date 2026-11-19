@@ -6,7 +6,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+    options.SwaggerDoc("v1", new() { Title = "SCCA · Calidad del aire", Version = "v1" }));
 
 // Configurar la conexión con PostgreSQL.
 var connectionString =
@@ -29,14 +30,17 @@ var app = builder.Build();
 
 // Configure the HTTP request pipeline.
 
-if (app.Environment.IsDevelopment())
+if (!app.Environment.IsDevelopment())
+    app.UseHttpsRedirection();
+
+if (app.Configuration.GetValue("Swagger:Habilitado", app.Environment.IsDevelopment()))
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
-}
-else
-{
-    app.UseHttpsRedirection();
+    app.UseSwaggerUI(options =>
+    {
+        options.DocumentTitle = "SCCA | Swagger";
+        options.SwaggerEndpoint("./v1/swagger.json", "API SCCA v1");
+    });
 }
 
 app.UseAuthorization();
