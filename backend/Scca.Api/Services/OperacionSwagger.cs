@@ -10,15 +10,42 @@ public sealed class OperacionSwagger : IOperationFilter
     {
         var header = operation.Parameters?.FirstOrDefault(p =>
             p.In == ParameterLocation.Header && p.Name == "X-Api-Key");
-        if (header is null) return;
-        operation.Parameters!.Remove(header);
+        var acceso = context.MethodInfo.GetCustomAttributes(typeof(AccesoMlAttribute), true)
+            .OfType<AccesoMlAttribute>().SingleOrDefault();
+        if (header is null && acceso is null) return;
+        if (header is not null) operation.Parameters!.Remove(header);
         operation.Security = [new OpenApiSecurityRequirement
         {
-            [new OpenApiSecuritySchemeReference("IoT", context.Document)] = []
+            [new OpenApiSecuritySchemeReference(acceso?.Esquema ?? "IoT", context.Document)] = []
         }];
 
         var path = context.ApiDescription.RelativePath;
         if (operation.RequestBody?.Content?.TryGetValue("application/json", out var json) != true) return;
+        if (path == "api/ml/politicas")
+        {
+            operation.Description = "Usa la versión vigente como version_anterior. La operación crea otra versión y cierra la anterior.";
+            json!.Example = JsonNode.Parse("""
+                {"version_anterior":1,"motivo":"Ajuste del intervalo de recepción","completitud_min_pct":75,"colocacion_dias":30,"pares_minimos":540,"test_pct":30,"mejora_rmse_min_pct":20,"sin_datos_seg":300,"configuracion":{"factor_sin_datos":2,"intervalos_sensor":{},"alertas_ambientales":[],"alertas_predictivas":[]}}
+                """);
+        }
+        if (path == "api/ml/modelos")
+        {
+            operation.Description = "El servicio ML registra una versión candidata. Usa una pareja sensor-variable y una política existentes.";
+            json!.Example = JsonNode.Parse("""
+                {"sensorId":1,"variableId":1,"politicaId":1,"version":1,"algoritmo":"random_forest","parametros":{"n_estimators":100}}
+                """);
+        }
+        if (path == "api/ml/validaciones")
+        {
+            operation.Description = "Añade una evaluación al historial del modelo bajo la política con la que fue registrado.";
+            json!.Example = JsonNode.Parse("""
+                {"modeloId":1,"politicaId":1,"pares":600,"estado":"apto","maeOrig":2,"rmseOrig":2,"sesgoOrig":0,"maeMl":1,"rmseMl":1,"sesgoMl":0,"mejoraRmsePct":50}
+                """);
+        }
+        if (path?.EndsWith("/revertir") == true)
+            operation.Description = "Indica el ID del modelo activo. Se recupera una versión anterior de la misma pareja sensor-variable, previamente activada y con última evaluación apta.";
+        if (path?.EndsWith("/suspender") == true || path?.EndsWith("/revertir") == true)
+            json!.Example = JsonNode.Parse("""{"motivo":"Revisión de las últimas mediciones"}""");
         if (path == "api/lecturas")
         {
             operation.Description = "Ejemplo DHT11. Usa el sensor y las unidades de tu instalación, un idMuestra nuevo y la fecha de medición en UTC.";

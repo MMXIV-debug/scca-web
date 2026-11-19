@@ -16,6 +16,16 @@ builder.Services.AddSwaggerGen(options =>
         Name = "X-Api-Key",
         Description = "Clave de la instalación configurada en Iot:ApiKey."
     });
+    options.AddSecurityDefinition("Administrador", new Microsoft.OpenApi.OpenApiSecurityScheme
+    {
+        Type = Microsoft.OpenApi.SecuritySchemeType.Http, Scheme = "bearer",
+        Description = "Token de la sesión del administrador, obtenido en POST /api/login del panel."
+    });
+    options.AddSecurityDefinition("ServicioML", new Microsoft.OpenApi.OpenApiSecurityScheme
+    {
+        Type = Microsoft.OpenApi.SecuritySchemeType.ApiKey, In = Microsoft.OpenApi.ParameterLocation.Header,
+        Name = "X-ML-Key", Description = "Credencial exclusiva del servicio configurada en Ml:RegistroApiKey."
+    });
     options.OperationFilter<Scca.Api.Services.OperacionSwagger>();
 });
 
@@ -35,6 +45,13 @@ builder.Services.AddHttpClient("ModeloMl", client =>
     client.BaseAddress = new Uri(url.TrimEnd('/') + "/");
     client.Timeout = TimeSpan.FromSeconds(15);
 });
+
+builder.Services.AddHttpClient("Panel", client =>
+{
+    var port = builder.Configuration["PORT"] ?? "3000";
+    client.BaseAddress = new Uri(builder.Configuration["Panel:BaseUrl"] ?? $"http://127.0.0.1:{port}/");
+    client.Timeout = TimeSpan.FromSeconds(8);
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 
 var app = builder.Build();
 
