@@ -125,7 +125,7 @@ async function post(body, status = 201) {
           ...process.env,
           ASPNETCORE_URLS: 'http://127.0.0.1:15060',
           ASPNETCORE_ENVIRONMENT: 'Development',
-          ConnectionStrings__Postgres: `Host=127.0.0.1;Port=${port};Database=${database};Username=scca_test`,
+          DATABASE_URL: `postgresql://scca_test@127.0.0.1:${port}/${database}`,
           Iot__ApiKey: secret,
           Ml__BaseUrl: 'http://127.0.0.1:18060/',
         },

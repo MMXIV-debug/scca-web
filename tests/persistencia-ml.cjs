@@ -54,7 +54,7 @@ async function count(table){return Number((await client.query('SELECT count(*) A
  res.setHeader('Content-Type','application/json');res.end(JSON.stringify(output));});
  await new Promise(r=>mock.listen(18003,'127.0.0.1',r));
  api=spawn('dotnet',[path.join(root,'backend/Scca.Api/bin/comprobacion-persistencia/Scca.Api.dll')],{windowsHide:true,stdio:'ignore',env:{...process.env,
- ASPNETCORE_URLS:'http://127.0.0.1:15053',ASPNETCORE_ENVIRONMENT:'Development',ConnectionStrings__Postgres:`Host=127.0.0.1;Port=${port};Database=${database};Username=scca_test`,
+ ASPNETCORE_URLS:'http://127.0.0.1:15053',ASPNETCORE_ENVIRONMENT:'Development',DATABASE_URL: `postgresql://scca_test@127.0.0.1:${port}/${database}`,
  Iot__ApiKey:secret,Ml__BaseUrl:'http://127.0.0.1:18003/',Ml__PersistenciaDemoHabilitada:'true',Ml__PoliticaVersionadaHabilitada:'true'}});
  let ready=false;for(let i=0;i<40;i++){try{await fetch('http://127.0.0.1:15053/swagger/index.html');ready=true;break;}catch{}await new Promise(r=>setTimeout(r,250));}assert.ok(ready);
  const body={sensorId:1,proposito:'calibracion',variable:'PM25',horizonteH:0,horaInicio:'2026-01-01T00:00:00Z'};

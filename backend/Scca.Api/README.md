@@ -7,10 +7,9 @@ WeatherForecast es el ejemplo de la plantilla, no un modelo ambiental.
 
 ## Ejecutar en desarrollo
 
-Desde esta carpeta, configurar la conexion local (reemplazar los valores):
+La API usa DATABASE_URL, igual que el panel y ML. En desarrollo también lee esa variable del archivo .env de la raíz. Desde esta carpeta:
 
 ```powershell
-dotnet user-secrets set "ConnectionStrings:Postgres" "Host=localhost;Port=5432;Database=sistema_calidad_aire;Username=USUARIO;Password=CONTRASENA"
 dotnet build
 $env:ASPNETCORE_ENVIRONMENT = "Development"
 dotnet run --no-launch-profile --urls "http://localhost:5051"

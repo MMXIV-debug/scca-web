@@ -99,12 +99,8 @@ async function iniciar() {
     throw new Error('Falta preparar el esquema de usuarios. Revisa la conexión y aplica db/03_jerarquia_admin.sql con el propietario de las tablas.');
   } finally { await esquema.end(); }
 
-  const db = new URL(process.env.DATABASE_URL);
-  const citar = texto => '"' + texto.replaceAll('"', '""') + '"';
-  const conexion = `Host=${citar(db.hostname)};Port=${db.port || 5432};Database=${citar(decodeURIComponent(db.pathname.slice(1)))};Username=${citar(decodeURIComponent(db.username))};Password=${citar(decodeURIComponent(db.password))}`;
   const entorno = {
     ...process.env, PORT: String(web), ASPNETCORE_ENVIRONMENT: 'Development',
-    ConnectionStrings__Postgres: process.env.ConnectionStrings__Postgres || conexion,
     SIMULADOR_API_URL: `http://127.0.0.1:${api}/api/lecturas`,
     Iot__ApiKey: clave, Ml__BaseUrl: `http://127.0.0.1:${ml}/`
   };

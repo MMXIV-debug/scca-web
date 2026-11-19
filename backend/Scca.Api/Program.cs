@@ -30,13 +30,45 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // Configurar la conexión con PostgreSQL.
-var connectionString =
-    builder.Configuration.GetConnectionString("Postgres")
-    ?? throw new InvalidOperationException(
-        "Falta configurar la conexión con PostgreSQL.");
+var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+if (databaseUrl is null && builder.Environment.IsDevelopment())
+{
+    var archivo = Path.Combine(builder.Environment.ContentRootPath, "..", "..", ".env");
+    if (File.Exists(archivo))
+    {
+        const string clave = "DATABASE_URL=";
+        databaseUrl = File.ReadLines(archivo).Select(linea => linea.Trim())
+            .FirstOrDefault(linea => linea.StartsWith(clave, StringComparison.Ordinal))?[clave.Length..]
+            .Trim().Trim('"', (char)39);
+    }
+}
 
-builder.Services.AddSingleton(
-    NpgsqlDataSource.Create(connectionString));
+if (!Uri.TryCreate(databaseUrl, UriKind.Absolute, out var db) ||
+    db.Scheme is not ("postgres" or "postgresql") || db.AbsolutePath.Length < 2)
+    throw new InvalidOperationException("Configura DATABASE_URL con la dirección PostgreSQL del proyecto.");
+
+var usuario = db.UserInfo.Split(':', 2);
+var conexion = new NpgsqlConnectionStringBuilder
+{
+    Host = db.IdnHost,
+    Port = db.IsDefaultPort ? 5432 : db.Port,
+    Database = Uri.UnescapeDataString(db.AbsolutePath[1..]),
+    Username = Uri.UnescapeDataString(usuario[0]),
+    Password = usuario.Length == 2 ? Uri.UnescapeDataString(usuario[1]) : null,
+    ApplicationName = "Scca.Api"
+};
+foreach (var parametro in Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(db.Query))
+{
+    if (!parametro.Key.Equals("sslmode", StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException($"Opción de DATABASE_URL no admitida: {parametro.Key}");
+    conexion.SslMode = parametro.Value.ToString().ToLowerInvariant() switch
+    {
+        "disable" => SslMode.Disable, "allow" => SslMode.Allow, "prefer" => SslMode.Prefer,
+        "require" => SslMode.Require, "verify-ca" => SslMode.VerifyCA, "verify-full" => SslMode.VerifyFull,
+        _ => throw new InvalidOperationException("sslmode inválido en DATABASE_URL.")
+    };
+}
+builder.Services.AddSingleton(_ => NpgsqlDataSource.Create(conexion.ConnectionString));
 
 // Conectar la API .NET con el servicio interno del modelo ML.
 builder.Services.AddHttpClient("ModeloMl", client =>
