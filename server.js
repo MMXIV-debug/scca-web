@@ -77,6 +77,8 @@ function soloAdmin(req, res, next) {
 
 app.use('/api/admin/cuarentena', require('./services/cuarentenaService').crearRouterCuarentena(pool, auth, soloAdmin));
 
+app.use('/api/admin/alertas', require('./services/alertasService').crearRouterAlertas(pool, auth, soloAdmin));
+require('./services/alertasService').iniciarMonitorAlertas(pool);
 function calcularAQI_EPA(pm25) {
   const c = Math.floor(pm25 * 10) / 10;
   const breakpoints = [

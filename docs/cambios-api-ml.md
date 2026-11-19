@@ -146,3 +146,11 @@ Balance: dos rutas Node nuevas, pantalla administrativa nueva, un índice adicio
 - Restauración valida el contrato actual y conserva valores/fecha/idMuestra. No se confunde una restauración administrativa con calibración ML. Decisiones se conservan en auditoria_evento existente.
 
 Prueba local: 17 solicitudes correctas con PostgreSQL temporal, concurrencia, roles, atomicidad, validación y paginación. No se modificó dashboard visualizador ni la BD en nube. Guía docs/cuarentena-admin.md. Alertas y otros paneles siguen pendientes.
+
+## Entrega 6 — alertas técnicas (local)
+
+Tres rutas Node nuevas: GET /api/admin/alertas, POST /api/admin/alertas/comprobar y POST /api/admin/alertas/:id/atender. JWT y administrador; sin cambios de .NET ni firmware. Monitor opcional cada 60 s con ALERTAS_TECNICAS_AUTO=true y ALERTAS_TECNICAS_HABILITADAS=true. Por defecto no escribe. ALERTAS_SIN_DATOS_S configura el umbral global: predeterminado 300, pero ajustar a la frecuencia real (simulador 900 s requiere más margen, p. ej. 1800). Política diferenciada por perfil/sensor pendiente.
+
+Migración 06_alertas_tecnicas.sql: solo índice único parcial en alerta para evitar duplicados de interrupciones. No tablas nuevas y no aplicación en nube. Usa auditoria_evento existente para creación, atención y resolución. Revisa cada sensor, no actividad global del nodo; cuarentena recibida también cuenta como comunicación. No modifica estado administrativo de nodo.
+
+Pantalla alertas.html/js con enlace admin; filtro, paginación, comprobación y atención con motivo. Alertas técnicas se resuelven por recepción restablecida o salida de supervisión. No implementa correo, banner visualizador, alertas EPA ni predicciones todavía. Guía docs/alertas-tecnicas.md. Pruebas locales de servicio/DB correctas; revisión visual pendiente. Esta entrega aún no publicada.
