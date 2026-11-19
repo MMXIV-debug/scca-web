@@ -15,7 +15,7 @@ Con doble clic en "Iniciar SCCA.cmd" o ejecutando npm start se compila la API, s
 
 Configurar IOT_API_KEY en .env con la misma API_KEY del ESP32. Los puertos predeterminados son PORT=3000, API_PORT=5051 y ML_PORT=8000. Al cambiar API_PORT, actualizar también la URL del ESP32. Para omitir la apertura del navegador, usar npm start -- --sin-navegador.
 
-Abrir http://localhost:3000 (o el puerto configurado). El archivo `.env` contiene `DATABASE_URL`, `JWT_SECRET` y, opcionalmente, `PORT`. Se conserva versionado por decisión del equipo para este repositorio privado. `.env.example` muestra las variables sin credenciales reales.
+Abrir http://localhost:3000 (o el puerto configurado). El archivo `.env` contiene `DATABASE_URL`, `JWT_SECRET` y, opcionalmente, `PORT`. Los archivos de entorno se configuran localmente y están excluidos de Git, al igual que secretos y respaldos de la base. No publicar credenciales de la nube ni claves de API.
 
 Antes de probar la versión con jerarquía de administradores, ejecutar una vez `db/03_jerarquia_admin.sql` sobre la base existente usando el propietario de las tablas. La migración agrega `admin_principal` y `administrador_desde`, y requiere una cuenta `admin` activa y aprobada. El iniciador comprueba la conexión a PostgreSQL, pero esta migración se aplica por separado.
 

@@ -10,3 +10,26 @@ __pycache__/
 **/obj/
 .vs/
 *.user
+
+# Secretos locales: nunca publicar archivos de entorno
+.env
+.env.*
+*.env
+*.env.*
+**/secrets.json
+**/appsettings.Local.json
+**/appsettings.*.local.json
+*.pem
+*.key
+*.pfx
+*.p12
+credentials*.json
+service-account*.json
+# Respaldos de datos (conservar migraciones de esquema)
+*.dump
+*.backup
+backups/
+dumps/
+db/sistema_calidad_aire.sql
+ml_engine/datasets_generados/
+.venv_equipo_origen/
