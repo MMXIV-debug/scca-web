@@ -164,13 +164,12 @@ class UsuarioService {
 
     static async reactivar(usuarioId, adminId) {
         return this.gestionar(usuarioId, adminId, async (client, usuario) => {
-            this.validarEstado(usuario, 'aprobado');
             if (usuario.estado !== 'inactivo') throw errorUsuario(409, 'La cuenta no está inhabilitada');
             const { rows } = await client.query(
                 `UPDATE usuario SET activo = true, estado = 'aprobado' WHERE id = $1
                  RETURNING id, estado, activo, rol_id, administrador_desde`, [usuarioId]
             );
-            await this.auditar(client, adminId, usuario, 'reactivar', rows[0], 'Reactivación de cuenta');
+            await this.auditar(client, adminId, usuario, 'reactivar', rows[0]);
             return rows[0];
         });
     }

@@ -513,3 +513,7 @@ body.dashboard-body {
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* Gráficos del visualizador */
+.grafico-alto { position: relative; height: 320px; padding: 0 2.5rem; }
+.voc-placeholder { position: absolute; top: 8px; right: 3rem; opacity: .85; }

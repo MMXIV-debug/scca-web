@@ -52,6 +52,72 @@
         </div>
         
         <p class="small text-secondary mt-3">Resumen en tiempo real del monitoreo y estado de los sitios.</p>
+
+        <!-- Gráficos (carrusel) + media semanal -->
+        <div class="row g-3 mt-2">
+
+          <!-- Carrusel de gráficos -->
+          <div class="col-12 col-xl-8">
+            <div class="panel-box p-3 h-100">
+              <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                <h2 class="h6 fw-bold mb-0 titulo-scca"><i class="bi bi-graph-up me-1"></i> Tendencia de mediciones</h2>
+                <div class="btn-group btn-group-sm" role="group" aria-label="Rango de tiempo">
+                  <button type="button" class="btn btn-outline-secondary" data-horas="24">24 h</button>
+                  <button type="button" class="btn btn-outline-secondary active" data-horas="168">7 días</button>
+                </div>
+              </div>
+
+              <div id="carrusel-graficos" class="carousel slide carousel-dark" data-bs-interval="false">
+                <div class="carousel-indicators position-static mb-2 mt-0">
+                  <button type="button" data-bs-target="#carrusel-graficos" data-bs-slide-to="0" class="active" aria-label="PM"></button>
+                  <button type="button" data-bs-target="#carrusel-graficos" data-bs-slide-to="1" aria-label="Clima"></button>
+                  <button type="button" data-bs-target="#carrusel-graficos" data-bs-slide-to="2" aria-label="Gases"></button>
+                </div>
+
+                <div class="carousel-inner">
+                  <div class="carousel-item active">
+                    <div class="small fw-bold text-center mb-1">Material particulado (PM1, PM2.5, PM10)</div>
+                    <div class="grafico-alto"><canvas id="grafico-pm"></canvas></div>
+                  </div>
+                  <div class="carousel-item">
+                    <div class="small fw-bold text-center mb-1">Temperatura y humedad relativa</div>
+                    <div class="grafico-alto"><canvas id="grafico-clima"></canvas></div>
+                  </div>
+                  <div class="carousel-item">
+                    <div class="small fw-bold text-center mb-1">Gases (CO · VOC)</div>
+                    <div class="grafico-alto">
+                      <canvas id="grafico-gases"></canvas>
+                      <span class="badge bg-secondary voc-placeholder">VOC: próximamente</span>
+                    </div>
+                  </div>
+                </div>
+
+                <button class="carousel-control-prev" type="button" data-bs-target="#carrusel-graficos" data-bs-slide="prev" aria-label="Anterior">
+                  <span class="carousel-control-prev-icon"></span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#carrusel-graficos" data-bs-slide="next" aria-label="Siguiente">
+                  <span class="carousel-control-next-icon"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cuadro de media semanal -->
+          <div class="col-12 col-xl-4">
+            <div class="panel-box p-3 h-100">
+              <h2 class="h6 fw-bold mb-1 titulo-scca"><i class="bi bi-calendar-week me-1"></i> Media semanal</h2>
+              <p class="small text-secondary mb-2">Promedio de los últimos 7 días.</p>
+              <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>Parámetro</th><th class="text-end">Media</th><th class="text-end">Mín – Máx</th></tr></thead>
+                <tbody id="filas-semanal">
+                  <tr><td colspan="3" class="text-center text-secondary py-3">Cargando...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
       </section>
       
       <!-- SECCIÓN: Sitios y fuentes -->
@@ -104,6 +170,9 @@
 
     </main>
   </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
   <script src="js/visualizador.js"></script>
 </body>
 </html>

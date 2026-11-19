@@ -127,6 +127,130 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) { console.error(e); }
   }
 
+  // ---------- Gráficos (Chart.js) y media semanal ----------
+  const CONFIG_GRAFICOS = [
+    { id: 'grafico-pm', series: [
+      { codigo: 'PM1',  etiqueta: 'PM1 (µg/m³)',   color: '#c9a227' },
+      { codigo: 'PM25', etiqueta: 'PM2.5 (µg/m³)', color: '#1d4f91' },
+      { codigo: 'PM10', etiqueta: 'PM10 (µg/m³)',  color: '#0b3d2e' }
+    ]},
+    { id: 'grafico-clima', series: [
+      { codigo: 'TEMP', etiqueta: 'Temperatura (°C)',     color: '#dc3545', eje: 'y'  },
+      { codigo: 'HUM',  etiqueta: 'Humedad relativa (%)', color: '#0d9ec4', eje: 'y1' }
+    ]},
+    { id: 'grafico-gases', series: [
+      { codigo: 'CO', etiqueta: 'CO (µg/m³)', color: '#6f42c1' }
+      // VOC: pendiente de implementar (placeholder en el HTML)
+    ]}
+  ];
+
+  const graficos = {};
+  let horasGrafico = 168;
+
+  function formatoHora(iso) {
+    return new Date(iso).toLocaleString('es-BO', {
+      timeZone: 'America/La_Paz', day: '2-digit', month: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    });
+  }
+
+  async function cargarGraficos() {
+    try {
+      const r = await fetch(`/api/visualizador/series?horas=${horasGrafico}`, { headers: H });
+      if (!r.ok) return;
+      const filas = await r.json();
+
+      // Eje X común: todas las horas que existen, ordenadas
+      const horas = [...new Set(filas.map(f => f.hora))].sort();
+      const etiquetas = horas.map(formatoHora);
+
+      // porVariable['PM25']['2026-11-13T00:00:00.000Z'] = valor
+      const porVariable = {};
+      filas.forEach(f => { (porVariable[f.codigo] ??= {})[f.hora] = f.valor; });
+
+      CONFIG_GRAFICOS.forEach(cfg => {
+        const datasets = cfg.series.map(s => ({
+          label: s.etiqueta,
+          data: horas.map(h => porVariable[s.codigo]?.[h] ?? null),
+          borderColor: s.color,
+          backgroundColor: s.color,
+          yAxisID: s.eje || 'y',
+          tension: 0.35,        // línea suavizada tipo AccuWeather
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          spanGaps: true        // une los huecos sin datos
+        }));
+
+        if (graficos[cfg.id]) {              // ya existe: solo actualizar datos
+          graficos[cfg.id].data.labels = etiquetas;
+          graficos[cfg.id].data.datasets.forEach((d, i) => d.data = datasets[i].data);
+          graficos[cfg.id].update('none');
+          return;
+        }
+
+        const dobleEje = cfg.series.some(s => s.eje === 'y1');
+        graficos[cfg.id] = new Chart(document.getElementById(cfg.id), {
+          type: 'line',
+          data: { labels: etiquetas, datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },  // tooltip con todos los valores a esa hora
+            plugins: { legend: { position: 'bottom' } },
+            scales: {
+              x: { ticks: { maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } },
+              y: { position: 'left' },
+              ...(dobleEje ? { y1: { position: 'right', grid: { drawOnChartArea: false } } } : {})
+            }
+          }
+        });
+      });
+    } catch (e) { console.error(e); }
+  }
+
+  const FILAS_SEMANAL = [
+    { codigo: 'PM1',  nombre: 'PM1',               unidad: 'µg/m³' },
+    { codigo: 'PM25', nombre: 'PM2.5',             unidad: 'µg/m³' },
+    { codigo: 'PM10', nombre: 'PM10',              unidad: 'µg/m³' },
+    { codigo: 'TEMP', nombre: 'Temperatura',       unidad: '°C' },
+    { codigo: 'HUM',  nombre: 'Humedad relativa',  unidad: '%' },
+    { codigo: 'CO',   nombre: 'CO',                unidad: 'µg/m³' },
+    { codigo: 'VOC',  nombre: 'VOC',               unidad: '' }   // placeholder
+  ];
+
+  async function cargarSemanal() {
+    try {
+      const r = await fetch('/api/visualizador/semanal', { headers: H });
+      if (!r.ok) return;
+      const datos = await r.json();
+      const porCodigo = Object.fromEntries(datos.map(d => [d.codigo, d]));
+      const tb = document.getElementById('filas-semanal');
+      if (!tb) return;
+      tb.innerHTML = FILAS_SEMANAL.map(f => {
+        const d = porCodigo[f.codigo];
+        if (!d) return `<tr><td class="fw-bold">${f.nombre}</td><td class="text-end text-muted" colspan="2">${f.codigo === 'VOC' ? 'Próximamente' : 'Sin datos'}</td></tr>`;
+        return `<tr>
+          <td class="fw-bold">${f.nombre}</td>
+          <td class="text-end">${d.promedio} <small class="text-secondary">${f.unidad}</small></td>
+          <td class="text-end small text-secondary">${d.minimo.toFixed(1)} – ${d.maximo.toFixed(1)}</td>
+        </tr>`;
+      }).join('');
+    } catch (e) { console.error(e); }
+  }
+
+  // Botones 24 h / 7 días
+  document.querySelectorAll('[data-horas]').forEach(btn => btn.addEventListener('click', () => {
+    horasGrafico = Number(btn.dataset.horas);
+    document.querySelectorAll('[data-horas]').forEach(b => b.classList.toggle('active', b === btn));
+    cargarGraficos();
+  }));
+
+  // Al cambiar de diapositiva, Chart.js recalcula el tamaño (estaba oculta)
+  document.getElementById('carrusel-graficos')?.addEventListener('slid.bs.carousel', () => {
+    Object.values(graficos).forEach(g => g.resize());
+  });
+
   try {
     const r = await fetch('/api/me', {
       headers: { 'Authorization': 'Bearer ' + token }
@@ -158,12 +282,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     cargarResumen();
     cargarSitios();
     cargarParametros();
+    cargarGraficos();
+    cargarSemanal();
     let actualizando = false;
+
     setInterval(async () => {
       if (actualizando || document.hidden) return;
       actualizando = true;
       try {
-        await Promise.all([cargarResumen(), cargarSitios(), cargarParametros()]);
+        await Promise.all([cargarResumen(), cargarSitios(), cargarParametros(), cargarGraficos(), cargarSemanal()]);
       } finally {
         actualizando = false;
       }

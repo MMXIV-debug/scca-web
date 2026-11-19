@@ -354,5 +354,48 @@ app.get('/api/visualizador/resumen', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Error interno' }); }
 });
 
+// ------------Grafico y media semanal------------------
+const VARIABLES_GRAFICO = ['PM1', 'PM25', 'PM10', 'CO', 'TEMP', 'HUM'];
+
+// Promedio por hora de cada variable en las ultimas N horas 
+app.get('/api/visualizador/series', auth, async (req, res) => {
+  const horas = Math.min(Math.max(parseInt(req.query.horas) || 24, 1), 168);
+  try {
+    const { rows } = await pool.query(
+      `Select v.codigo,
+        date_trunc('hour', l.medido_en) AS hora,
+        AVG(l.valor)::float AS valor
+      FROM lectura_original l
+      JOIN variable v ON v.id = l.variable_id
+      WHERE v.codigo = ANY($1)
+        AND l.medido_en >= now() - make_interval(hours => $2)
+      GROUP BY v.codigo, hora
+      ORDER BY hora`,
+      [VARIABLES_GRAFICO, horas]
+    );
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: 'Error interno' }); }
+});
+
+// Promedio, mínimo y máximo de los últimos 7 días por variable
+app.get('/api/visualizador/semanal', auth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT v.codigo,
+              ROUND(AVG(l.valor), 2)::float AS promedio,
+              MIN(l.valor)::float AS minimo,
+              MAX(l.valor)::float AS maximo,
+              COUNT(*)::int AS lecturas
+         FROM lectura_original l
+         JOIN variable v ON v.id = l.variable_id
+        WHERE v.codigo = ANY($1)
+          AND l.medido_en >= now() - interval '7 days'
+        GROUP BY v.codigo`,
+      [VARIABLES_GRAFICO]
+    );
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: 'Error cargando media semanal' }); }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor iniciado en http://localhost:${PORT}`));
