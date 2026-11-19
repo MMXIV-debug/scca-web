@@ -110,7 +110,7 @@ API-004 queda parcialmente resuelto: selección e inferencia del registro local 
 
 ## Entrega 4 — 18/11/2026: persistencia e historial de demostración
 
-**Cambios de esta entrega:** una propiedad opcional añadida al DTO existente (`guardarResultado`, false por defecto), una ruta GET nueva, un campo interno Python nuevo (`modelo_metadatos`), una migración aditiva de dos tablas y una opción de configuración. Entrega preparada para publicación en `Machine-Learning`. Migración comprobada localmente, NO aplicada en nube.
+**Cambios de esta entrega:** una propiedad opcional añadida al DTO existente (`guardarResultado`, false por defecto), una ruta GET nueva, un campo interno Python nuevo (`modelo_metadatos`), una migración aditiva de dos tablas y una opción de configuración. Código local, no publicado. Migración comprobada localmente, NO aplicada en nube.
 
 ### Aplicado API-007 — guardar resultado horario de demostración
 
@@ -133,3 +133,16 @@ Persistencia del historial horario demo implementada. Siguen pendientes la sincr
 13 verificaciones de integración .NET/PostgreSQL local correctas, 41 pruebas Python y compilación sin errores. No se aplicó SQL ni se insertaron datos en nube. Guía: docs/persistencia-ml-demo.md.
 
 Mensaje para el compañero: «Agregamos guardarResultado opcional en /api/modelo/evaluar y GET /api/modelo/resultados. Para guardar, primero hay que aplicar 04_resultados_ml_demo.sql y habilitar Ml__PersistenciaDemoHabilitada. Son dos tablas nuevas de demostración; no tocamos lectura_original, lectura_corregida ni el contrato ESP32. El guardado es idempotente, conserva metadatos y resultados anteriores. La migración todavía no se aplicó a la base compartida.»
+
+## Entrega 5 — revisión de cuarentena (local)
+
+Balance: dos rutas Node nuevas, pantalla administrativa nueva, un índice adicional en auditoria_evento; cero tablas nuevas, cero cambios a .NET/firmware/ingesta. No aplicada a nube ni publicada todavía.
+
+- GET /api/admin/cuarentena: filtros de estado y cursor por ID, solo Administrador con JWT vigente.
+- POST /api/admin/cuarentena/decisiones: ids como texto, accion restaurar/descartar y motivo obligatorio. Lotes atómicos de hasta 50, reintentos idempotentes y auditoría con administrador/fecha/IDs de lecturas restauradas. No se borra la muestra en cuarentena.
+- db/05_revision_cuarentena.sql añade índice único parcial para una decisión definitiva por muestra. Requiere revisión y aplicación local; no ejecutar en nube sin autorización.
+- CUARENTENA_REVISION_HABILITADA=true habilita decisiones en Node; por defecto deshabilitadas. La lectura no requiere esa opción.
+- Pantalla public/cuarentena.html + public/js/cuarentena.js; enlace únicamente en dashboard administrador. Se reutiliza Bearer JWT, nunca clave IoT del servidor.
+- Restauración valida el contrato actual y conserva valores/fecha/idMuestra. No se confunde una restauración administrativa con calibración ML. Decisiones se conservan en auditoria_evento existente.
+
+Prueba local: 17 solicitudes correctas con PostgreSQL temporal, concurrencia, roles, atomicidad, validación y paginación. No se modificó dashboard visualizador ni la BD en nube. Guía docs/cuarentena-admin.md. Alertas y otros paneles siguen pendientes.
