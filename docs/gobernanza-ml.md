@@ -1,6 +1,6 @@
 # Evaluación y promoción local de modelos — entrega 2
 
-El nuevo entrenador consume datasets del paso anterior. No lee ni escribe PostgreSQL y no reemplaza `modelos_guardados/detector_anomalias.joblib` ni `forecaster.joblib`. La activación aquí es **solo en el registro de demostración**; FastAPI sigue usando sus archivos actuales hasta integrar el registro en una entrega posterior.
+El nuevo entrenador consume datasets del paso anterior. No lee ni escribe PostgreSQL y no reemplaza `modelos_guardados/detector_anomalias.joblib` ni `forecaster.joblib`. La activación aquí es **solo en el registro de demostración**. Desde la entrega 3, las rutas `/api/v2/modelos/*` consultan ese registro; las rutas legacy conservan sus archivos actuales. Ver `inferencia-versionada-ml.md`.
 
 ## Evaluar
 
@@ -59,4 +59,4 @@ Se probaron selección/activación con datos sintéticos aislados en carpetas te
 .\.venv\Scripts\python.exe -m unittest discover -s ml_engine -p "test_*.py" -v
 ```
 
-30 pruebas correctas: cobertura y perfiles, métricas, particiones temporales, promoción, no reutilización de prueba, XGBoost, bloqueo de escritores, falla atómica, integridad y reversión. Entrega preparada para publicación en la rama `Machine-Learning`.
+30 pruebas correctas: cobertura y perfiles, métricas, particiones temporales, promoción, no reutilización de prueba, XGBoost, bloqueo de escritores, falla atómica, integridad y reversión. La publicación de esta entrega no se ha realizado aún.

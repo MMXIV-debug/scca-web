@@ -53,7 +53,7 @@ Por instrucción del usuario, se excluyen todos los archivos de entorno (incluid
 
 ## Entrega 2 — 18/11/2026: evaluación, registro y promoción de demostración
 
-**Balance acumulado HTTP:** 0 endpoints modificados, 0 DTO modificados, 0 migraciones ejecutadas. **Nuevo cambio de ejecución:** un contrato CLI sustituido. Entrega 2 preparada para publicación en `Machine-Learning`.
+**Balance acumulado HTTP:** 0 endpoints modificados, 0 DTO modificados, 0 migraciones ejecutadas. **Nuevo cambio de ejecución:** un contrato CLI sustituido. Entrega 2 local, todavía sin publicar.
 
 ### Aplicado ML-003 — entrenador con dataset explícito
 
@@ -80,3 +80,30 @@ Isolation Forest queda pendiente de etiquetas y política propia; RMSE no aprueb
 ### Mensaje actualizado para el responsable de API
 
 «El entrenador ahora consume datasets explícitos y guarda evaluación/versiones en un registro local de demostración. Cambió su comando, por lo que habrá que actualizar la tarea programada. No cambiamos endpoints, DTO ni base de datos; la API sigue usando sus modelos actuales. En el siguiente paso debemos coordinar cómo pasar sensor/perfil y devolver versión/estado del modelo, además de adaptar modelo_ml para propósito y horizonte. Los resultados de demostración no activan modelos operacionales.»
+
+
+## Entrega 3 — 18/11/2026: consulta de inferencia por identidad
+
+**Balance de esta entrega:** 1 endpoint nuevo .NET, 2 rutas internas nuevas Python, 1 DTO de solicitud nuevo, 0 cambios de payload del ESP32, 0 migraciones y 0 escrituras en PostgreSQL. Entrega preparada para publicación en `Machine-Learning`.
+
+### Aplicado API-005 — POST /api/modelo/evaluar (.NET)
+
+Nuevo archivo `backend/Scca.Api/Controllers/EvaluacionMlController.cs`. Recibe sensorId/proposito/variable/horizonteH/horaInicio con X-Api-Key. Obtiene nodo/perfil/unidades desde PostgreSQL; no confía en identidad o valores enviados por el cliente. Consulta el modelo y agrega una hora cerrada de lecturas válidas con cobertura mínima. Reutiliza el cliente ModeloMl y la configuración privada de autenticación existente. Las rutas /api/lecturas, /api/modelo y sus DTO anteriores no se modificaron.
+
+Para datos simulados configurar la frecuencia histórica por sensor en Ml:IntervalosSensor:ID (por ejemplo 900 segundos si corresponde). El intervalo debe coincidir con el contrato del modelo. Consulta la guía `inferencia-versionada-ml.md` para estados HTTP y ejemplos.
+
+### Aplicado API-006 — rutas internas /api/v2/modelos/estado e /inferir
+
+`ml_engine/inferencia_registro.py` y registro en `inferencia.py`. Selección exacta por nodo/sensor/perfil/propósito/variable/horizonte, comprobación de contrato temporal/columnas/dominio e integridad del artefacto. Inferencia exige modelo_version para detectar cambios concurrentes (409), y períodos horarios explícitos. La promoción y reversión se reflejan sin reiniciar. Ambas rutas requieren X-Api-Key; Python lee Iot__ApiKey o IOT_API_KEY. No exponer esa clave al frontend.
+
+Los nuevos modelos incluyen entrada_agregado_s e intervalo_s. Versiones sin esos campos se rechazan en la inferencia nueva, aunque sus rutas legacy no cambian. Un modelo de calibración no se trata como detector: es_anomalia=null significa no evaluado.
+
+### Estado de pendientes anteriores
+
+API-004 queda parcialmente resuelto: selección e inferencia del registro local ya disponibles. Persistencia operacional y migración de modelo_ml/validacion_ml siguen pendientes; no se inventaron equivalencias entre UUID local y modelo_id de PostgreSQL. API-001 (catálogo BME680), API-002 (histórico de frecuencia), API-003 (procedencia persistida) y ML-005 (evaluación de anomalías y política operacional de forecasting) siguen abiertos.
+
+### Evidencia y mensaje para el compañero
+
+41 pruebas Python y compilación .NET correctas. Pruebas HTTP de lectura con PostgreSQL comprobaron autenticación, perfil, sensor inexistente, datos insuficientes y compatibilidad de rutas legacy. Los modelos de prueba viven únicamente en procesos/directorios temporales y no se escribieron lecturas.
+
+«Agregamos POST /api/modelo/evaluar para consultar modelos por sensor sobre horas cerradas. La ingesta ESP32 no cambia. El endpoint obtiene nodo/perfil de la BD y llama a nuevas rutas internas Python autenticadas. Devuelve versión y estados sin_modelo/datos_incompletos/fuera_dominio/evaluado_demo; no persiste resultados todavía. Para el simulador hay que configurar su frecuencia por sensor. El siguiente cambio a coordinar es la persistencia de correcciones/pronósticos y la migración del registro de modelos.»
