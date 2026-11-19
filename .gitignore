@@ -37,3 +37,6 @@ ml_engine/registro_modelos_demo/
 
 # Plantilla pública sin secretos
 !.env.example
+
+# Excepción autorizada por el usuario: entorno compartido en repositorio privado
+!.env

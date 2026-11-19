@@ -182,3 +182,7 @@ Alcance: navegación y consulta; edición de políticas, ejecución de entrenami
 ## Aplicación aprobada de migraciones en nube — 18/11/2026
 
 Con autorización explícita del usuario se ejecutaron correctamente 05_revision_cuarentena.sql y 06_alertas_tecnicas.sql. Se comprobaron los índices ux_cuarentena_decision y ux_alerta_tecnica_sensor_abierta con sus condiciones de unicidad. Esta actualización reemplaza las indicaciones históricas de aplicación pendiente de 05/06. No se habilitaron monitores ni flags de escritura de aplicación y no se insertaron datos de prueba en nube.
+
+## Restauración de entorno por autorización explícita
+
+El usuario autorizó volver a publicar el .env real en el repositorio privado para que el equipo recupere la conexión. Se mantiene .env.example como plantilla. Esta excepción reemplaza la exclusión anterior únicamente para .env; los demás secretos y respaldos siguen excluidos. Retirarlo después no elimina las copias del historial y requiere rotación para invalidar credenciales.
