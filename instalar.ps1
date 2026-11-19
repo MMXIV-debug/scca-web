@@ -1,5 +1,7 @@
 param(
-  [switch]$SoloInstalar
+  [switch]$SoloInstalar,
+  [Parameter(ValueFromRemainingArguments = $true)]
+  [string[]]$ArgumentosIniciar
 )
 
 $ErrorActionPreference = 'Stop'
@@ -269,5 +271,5 @@ if ($SoloInstalar) {
 }
 
 Write-Host '>> Todo listo. Iniciando SCCA (node iniciar.js)...' -ForegroundColor Green
-& node iniciar.js
+& node iniciar.js @ArgumentosIniciar
 exit $LASTEXITCODE
