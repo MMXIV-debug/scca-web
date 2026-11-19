@@ -34,3 +34,6 @@ db/sistema_calidad_aire.sql
 ml_engine/datasets_generados/
 .venv_equipo_origen/
 ml_engine/registro_modelos_demo/
+
+# Plantilla pública sin secretos
+!.env.example

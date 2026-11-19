@@ -178,3 +178,7 @@ Se agregan tres rutas Node JWT/Administrador de solo lectura: GET /api/admin/ml/
 Dashboard administrador incorpora Políticas, Machine Learning, Alertas y Reportes ML. Se corrigió la navegación para interceptar solo enlaces internos #; los enlaces a otras páginas funcionan normalmente. Se conserva cuarentena. No se modificó dashboard visualizador.
 
 Alcance: navegación y consulta; edición de políticas, ejecución de entrenamiento desde panel y alertas ambientales/predictivas siguen pendientes. Pantallas nuevas sin revisión visual automatizada. Sintaxis JS correcta y diez verificaciones HTTP con base simulada correctas (401/403/200 y filtro inválido). Sin acceso a nube.
+
+## Aplicación aprobada de migraciones en nube — 18/11/2026
+
+Con autorización explícita del usuario se ejecutaron correctamente 05_revision_cuarentena.sql y 06_alertas_tecnicas.sql. Se comprobaron los índices ux_cuarentena_decision y ux_alerta_tecnica_sensor_abierta con sus condiciones de unicidad. Esta actualización reemplaza las indicaciones históricas de aplicación pendiente de 05/06. No se habilitaron monitores ni flags de escritura de aplicación y no se insertaron datos de prueba en nube.
