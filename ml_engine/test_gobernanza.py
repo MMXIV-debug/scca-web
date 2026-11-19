@@ -23,7 +23,8 @@ def dataset_prueba(raiz, n=744, sensor=1, inicio='2026-01-01T00:00:00Z'):
     pd.DataFrame({'medido_en': indice, 'original': x, 'referencia': 2 * x + 5,
                   'variable': 'PM25'}).to_csv(raiz / 'pares_demostracion.csv', index=False)
     meta = {'version_formato': 1, 'sensor': {'sensor_id': sensor, 'nodo_id': 1},
-            'perfil': 'perfil_prueba', 'unidades': {'PM25': 'µg/m3'}, 'completitud_minima': .75,
+            'perfil': 'contaminantes_simulados', 'unidades': {'PM25': 'µg/m3'}, 'completitud_minima': .75,
+            'intervalo_s': 900,
             'sha256': {p.name: hash_archivo(p) for p in raiz.iterdir()}}
     escribir_json(raiz / 'manifiesto.json', meta)
     return raiz

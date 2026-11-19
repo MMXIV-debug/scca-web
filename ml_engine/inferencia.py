@@ -5,8 +5,15 @@ import logging
 from pathlib import Path
 from integracion_iot import crear_router, evaluar
 import pandas as pd
+import os
+from dotenv import load_dotenv
+from inferencia_registro import crear_router_registro
 
 app = FastAPI(title="SCCA - ML Inference Service")
+load_dotenv(Path(__file__).resolve().parent.parent / '.env')
+app.include_router(crear_router_registro(
+    os.getenv('ML_REGISTRO_DIR', str(Path(__file__).resolve().parent / 'registro_modelos_demo')),
+    lambda: os.getenv('Iot__ApiKey') or os.getenv('IOT_API_KEY')))
 
 detector = None
 forecaster = None

@@ -117,6 +117,7 @@ def evaluar_dataset(carpeta, raiz_registro, proposito='calibracion', variable='P
                'variable': variable, 'horizonte_h': horizonte if proposito == 'pronostico' else 0,
                'dataset_sha256': hash_archivo(Path(carpeta) / 'manifiesto.json'),
                'perfil': manifiesto['perfil'], 'sensor': {'sensor_id': sensor['sensor_id'], 'nodo_id': sensor['nodo_id']},
+               'entrada_agregado_s': 3600, 'intervalo_s': manifiesto['intervalo_s'],
                'calibracion_fisica_validada': False, 'validacion_independiente': False,
                'razones': [], 'runtime': {'python': platform.python_version(), 'sklearn': sklearn.__version__}}
     with registro.bloquear():
