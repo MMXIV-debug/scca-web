@@ -31,4 +31,8 @@ public class EstadoController : ControllerBase
             postgresql = "conectado"
         });
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 207eda1 (Comentarios y cambio a base de datos en linea, por ahora en privado hasta poder cargar a la nube)

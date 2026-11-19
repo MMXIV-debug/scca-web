@@ -4,6 +4,10 @@ venv/
 __pycache__/
 *.py[cod]
 *.log
+<<<<<<< HEAD
+=======
+.env
+>>>>>>> 207eda1 (Comentarios y cambio a base de datos en linea, por ahora en privado hasta poder cargar a la nube)
 
 # Archivos generados por .NET
 **/bin/
