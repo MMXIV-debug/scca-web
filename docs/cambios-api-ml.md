@@ -50,3 +50,33 @@ El catálogo distingue real/simulado, pero las lecturas no documentan fuente ext
 ## Protección de secretos para publicación
 
 Por instrucción del usuario, se excluyen todos los archivos de entorno (incluidos ejemplos), claves y respaldos. Se retiran del árbol versionado `.env`, `.env.example` y el respaldo `db/sistema_calidad_aire.sql`. Se conservan localmente. No se ha reescrito el historial remoto ni se han cambiado credenciales; archivos presentes en commits anteriores siguen existiendo allí. Los integrantes deben mantener su configuración local y compartir secretos por un canal privado. Las migraciones de esquema se conservan.
+
+## Entrega 2 — 18/11/2026: evaluación, registro y promoción de demostración
+
+**Balance acumulado HTTP:** 0 endpoints modificados, 0 DTO modificados, 0 migraciones ejecutadas. **Nuevo cambio de ejecución:** un contrato CLI sustituido. Entrega 2 preparada para publicación en `Machine-Learning`.
+
+### Aplicado ML-003 — entrenador con dataset explícito
+
+`ml_engine/entrenador.py` ya no descarga todas las lecturas ni sobrescribe los joblib actuales. Requiere `evaluar --dataset RUTA --proposito calibracion|pronostico` (con variable y horizonte opcionales) o `revertir --clave CLAVE --motivo TEXTO`. Invocarlo sin argumentos finaliza con ayuda/error. **Actualizar la tarea programada antigua antes de reutilizarla**; no se modificó ninguna tarea del equipo ni el comando de arranque web.
+
+### Aplicado ML-004 — registro local de demostración
+
+`evaluacion.py` y `gobernanza.py` seleccionan mediante validación temporal interna, consumen una sola prueba final, comparan candidato/vigente sobre las mismas filas y mantienen estados/versiones/hashes/eventos. Solo apto_demo cambia la referencia activa del registro local; mantiene separado el ámbito operacional. Hay reversión explícita con motivo, validación de integridad y suspensión del reemplazado. El registro está excluido de Git y no es una tabla nueva en nube.
+
+### Pendiente API-004 — conectar el registro con inferencia y PostgreSQL
+
+Para la siguiente entrega coordinar identidad de nodo/sensor/perfil, propósito/variable/horizonte, versión del modelo y estado de evaluación. No asumir que existe ya un endpoint de activar/revertir ni cambiar el firmware. FastAPI sigue leyendo los artefactos actuales y la API .NET conserva su contrato.
+
+La persistencia operacional necesita distinguir calibración, anomalías y pronóstico en modelo_ml, agregar los algoritmos correspondientes y guardar métricas/particiones/dataset/política en validacion_ml. No se ha aplicado SQL. El índice actual de un activo por sensor-variable no representa varios propósitos/horizontes.
+
+### Pendiente ML-005 — políticas específicas de anomalías y pronóstico
+
+Isolation Forest queda pendiente de etiquetas y política propia; RMSE no aprueba un detector. Pronóstico usa provisionalmente las reglas conservadoras de calibración en demostración, hasta acordar sus criterios específicos. No afirmar que un modelo de demostración es físicamente validado. Reversión manual implementada; supervisión y reversión automática por degradación pendientes.
+
+### Evidencia
+
+30 pruebas correctas, incluidos entrenamiento sintético temporal, promoción, rechazo por métricas, integridad, reutilización prohibida de prueba, guardado fallido y reversión. Evaluación del dataset real: pendiente por falta de pares, sin entrenar ni reemplazar modelos. Las pruebas sintéticas no escriben en PostgreSQL.
+
+### Mensaje actualizado para el responsable de API
+
+«El entrenador ahora consume datasets explícitos y guarda evaluación/versiones en un registro local de demostración. Cambió su comando, por lo que habrá que actualizar la tarea programada. No cambiamos endpoints, DTO ni base de datos; la API sigue usando sus modelos actuales. En el siguiente paso debemos coordinar cómo pasar sensor/perfil y devolver versión/estado del modelo, además de adaptar modelo_ml para propósito y horizonte. Los resultados de demostración no activan modelos operacionales.»

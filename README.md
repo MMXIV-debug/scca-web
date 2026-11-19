@@ -15,7 +15,7 @@ Con doble clic en "Iniciar SCCA.cmd" o ejecutando npm start se compila la API, s
 
 Configurar IOT_API_KEY en .env con la misma API_KEY del ESP32. Los puertos predeterminados son PORT=3000, API_PORT=5051 y ML_PORT=8000. Al cambiar API_PORT, actualizar también la URL del ESP32. Para omitir la apertura del navegador, usar npm start -- --sin-navegador.
 
-Abrir http://localhost:3000 (o el puerto configurado). El archivo `.env` contiene `DATABASE_URL`, `JWT_SECRET` y, opcionalmente, `PORT`. Los archivos de entorno se configuran localmente y están excluidos de Git, al igual que secretos y respaldos de la base. No publicar credenciales de la nube ni claves de API.
+Abrir http://localhost:3000 (o el puerto configurado). El archivo `.env` contiene `DATABASE_URL`, `JWT_SECRET` y, opcionalmente, `PORT`. Los archivos de entorno y secretos se configuran localmente y están excluidos de Git. No publicar credenciales ni respaldos de la base.
 
 Antes de probar la versión con jerarquía de administradores, ejecutar una vez `db/03_jerarquia_admin.sql` sobre la base existente usando el propietario de las tablas. La migración agrega `admin_principal` y `administrador_desde`, y requiere una cuenta `admin` activa y aprobada. El iniciador comprueba la conexión a PostgreSQL, pero esta migración se aplica por separado.
 
@@ -30,9 +30,9 @@ python -m pip install -r requirements.txt
 ```
 
 - `python/simulador.py` consulta Open-Meteo y escribe lecturas cada 15 minutos. Requiere sensor 1 y los catálogos esperados. Estima PM1 a partir de PM2.5 e incluye CO.
-- `ml_engine/entrenador.py` entrena detección de anomalías y forecasting. Ejecutarlo desde `ml_engine` para respetar sus rutas relativas. La calibración con referencia real está pendiente.
+- `ml_engine/entrenador.py` ahora requiere `evaluar --dataset RUTA --proposito calibracion|pronostico`. Evalúa y registra modelos en un ámbito local de demostración; no reemplaza los modelos de FastAPI. Ver `docs/gobernanza-ml.md`.
 - `ml_engine/inferencia.py` expone una API FastAPI. Sus entradas deben reconciliarse con las características usadas al entrenar antes de considerar validada la predicción.
-- `ml_engine/base_datos.py` mantiene su configuración de conexión propia. Revisarla antes de ejecutar entrenamiento.
+- `ml_engine/base_datos.py` utiliza `DATABASE_URL` del entorno o `.env` local para preparar datasets. El entrenamiento consume esos archivos sin acceder a la base.
 
 Los archivos `.joblib` recibidos se conservan. Su presencia no acredita precisión ni validación ambiental.
 

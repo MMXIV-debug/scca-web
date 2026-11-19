@@ -1,6 +1,6 @@
 # Preparar datos ML por sensor y perfil
 
-Este paso produce conjuntos locales reproducibles. No entrena, activa modelos, publica resultados ni cambia PostgreSQL. El entrenador legado todavía no consume estos artefactos: su integración pertenece al paso de evaluación y promoción.
+Este paso produce conjuntos locales reproducibles. No entrena, activa modelos, publica resultados ni cambia PostgreSQL. El nuevo entrenador consume estos artefactos en un registro separado de demostración: consultar `gobernanza-ml.md`.
 
 ## Ejecutar desde la raíz del proyecto
 
@@ -35,7 +35,7 @@ El simulador existente usa Open-Meteo. Compararlo con este proveedor puede resul
 
 Fuente técnica: https://open-meteo.com/en/docs/air-quality-api — atribución Open-Meteo y Copernicus Atmosphere Monitoring Service (CAMS).
 
-No se cambia automáticamente el entrenamiento ni el comando general de arranque. Descargar históricos cada vez que se abre la web no forma parte de este proceso. La integración futura debe consumir manifiestos y aplicar los criterios de evaluación antes de activar modelos.
+Preparar datos no ejecuta automáticamente el entrenamiento ni cambia el comando general de arranque. Descargar históricos cada vez que se abre la web no forma parte de este proceso. El nuevo entrenador aplica evaluación antes de activar en el registro de demostración; la conexión de ese registro con FastAPI sigue pendiente.
 
 ## Verificación
 
