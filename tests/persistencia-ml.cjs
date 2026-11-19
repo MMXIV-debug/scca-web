@@ -74,4 +74,3 @@ async function count(table){return Number((await client.query('SELECT count(*) A
  assert.equal(await count('lectura_original'),5);checks++;
  console.log(`OK: ${checks} comprobaciones PostgreSQL/.NET; migración repetible, lectura sin escritura, persistencia, concurrencia, inmutabilidad y datos tardíos.`);
 }finally{if(api)api.kill();if(mock){mock.closeAllConnections();mock.close();}await client.end();}})().catch(e=>{console.error(e.message);process.exitCode=1;});
-

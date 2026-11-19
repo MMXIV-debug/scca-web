@@ -84,7 +84,7 @@ Isolation Forest queda pendiente de etiquetas y política propia; RMSE no aprueb
 
 ## Entrega 3 — 18/11/2026: consulta de inferencia por identidad
 
-**Balance de esta entrega:** 1 endpoint nuevo .NET, 2 rutas internas nuevas Python, 1 DTO de solicitud nuevo, 0 cambios de payload del ESP32, 0 migraciones y 0 escrituras en PostgreSQL. Entrega preparada para publicación en `Machine-Learning`.
+**Balance de esta entrega:** 1 endpoint nuevo .NET, 2 rutas internas nuevas Python, 1 DTO de solicitud nuevo, 0 cambios de payload del ESP32, 0 migraciones y 0 escrituras en PostgreSQL. Cambios locales, todavía sin publicar.
 
 ### Aplicado API-005 — POST /api/modelo/evaluar (.NET)
 
@@ -107,3 +107,29 @@ API-004 queda parcialmente resuelto: selección e inferencia del registro local 
 41 pruebas Python y compilación .NET correctas. Pruebas HTTP de lectura con PostgreSQL comprobaron autenticación, perfil, sensor inexistente, datos insuficientes y compatibilidad de rutas legacy. Los modelos de prueba viven únicamente en procesos/directorios temporales y no se escribieron lecturas.
 
 «Agregamos POST /api/modelo/evaluar para consultar modelos por sensor sobre horas cerradas. La ingesta ESP32 no cambia. El endpoint obtiene nodo/perfil de la BD y llama a nuevas rutas internas Python autenticadas. Devuelve versión y estados sin_modelo/datos_incompletos/fuera_dominio/evaluado_demo; no persiste resultados todavía. Para el simulador hay que configurar su frecuencia por sensor. El siguiente cambio a coordinar es la persistencia de correcciones/pronósticos y la migración del registro de modelos.»
+
+## Entrega 4 — 18/11/2026: persistencia e historial de demostración
+
+**Cambios de esta entrega:** una propiedad opcional añadida al DTO existente (`guardarResultado`, false por defecto), una ruta GET nueva, un campo interno Python nuevo (`modelo_metadatos`), una migración aditiva de dos tablas y una opción de configuración. Entrega preparada para publicación en `Machine-Learning`. Migración comprobada localmente, NO aplicada en nube.
+
+### Aplicado API-007 — guardar resultado horario de demostración
+
+`POST /api/modelo/evaluar` admite `guardarResultado:true` solo cuando `Ml:PersistenciaDemoHabilitada=true`. Después de evaluar, la API registra versión/metadatos y resultado en una transacción. Devuelve persistido/resultado_id. Reintentos idénticos conservan el ID; datos agregados distintos conservan un nuevo resultado sin borrar el anterior. Sin modelo o sin cobertura no escribe. No modifica ingesta IoT ni firmware.
+
+Servicio: `backend/Scca.Api/Services/ResultadosMlStore.cs`. Python ahora adjunta metadatos de evaluación seleccionados, sin rutas ni archivos de modelo. No copiar claves al frontend.
+
+### Aplicado API-008 — GET /api/modelo/resultados
+
+Consulta autenticada X-Api-Key por sensorId, cursor despuesDe y limite (1..100). Devuelve items/siguiente_despues_de. Preparada para una futura integración de servidor con el panel, no para exponer credenciales en navegador.
+
+### Migración propuesta DB-001
+
+`db/04_resultados_ml_demo.sql`: ml_demo_version y ml_demo_resultado con FK a catálogo, inmutabilidad e idempotencia. Necesita ejecutarse por el responsable de BD antes de habilitar guardado en nube. Se eligieron tablas aditivas porque lectura_corregida representa muestras individuales, no promedios horarios; modelo_ml/validacion_ml operacionales conservan su diseño actual. No equivaler UUID local a modelo_id entero.
+
+### Estado de pendientes y evidencia
+
+Persistencia del historial horario demo implementada. Siguen pendientes la sincronización completa de versiones/políticas operacionales, trazabilidad por IDs de lectura, alertas, cuarentena administrativa y conexión al dashboard. No se registran todas las versiones pendientes/rechazadas de Python, solo las usadas en resultados persistidos.
+
+13 verificaciones de integración .NET/PostgreSQL local correctas, 41 pruebas Python y compilación sin errores. No se aplicó SQL ni se insertaron datos en nube. Guía: docs/persistencia-ml-demo.md.
+
+Mensaje para el compañero: «Agregamos guardarResultado opcional en /api/modelo/evaluar y GET /api/modelo/resultados. Para guardar, primero hay que aplicar 04_resultados_ml_demo.sql y habilitar Ml__PersistenciaDemoHabilitada. Son dos tablas nuevas de demostración; no tocamos lectura_original, lectura_corregida ni el contrato ESP32. El guardado es idempotente, conserva metadatos y resultados anteriores. La migración todavía no se aplicó a la base compartida.»
