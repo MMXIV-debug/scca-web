@@ -6,6 +6,8 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
+using Scca.Api.Services;
+using System.Text.Json.Nodes;
 
 namespace Scca.Api.Controllers;
 
@@ -19,6 +21,7 @@ public sealed class SolicitudEvaluacionMl
     public required string Variable { get; init; }
     public int HorizonteH { get; init; }
     public DateTimeOffset HoraInicio { get; init; }
+    public bool GuardarResultado { get; init; }
 }
 
 /// <summary>Consulta de demostración, sin persistir ni modificar la ingesta IoT.</summary>
@@ -28,6 +31,49 @@ public sealed class EvaluacionMlController(
     NpgsqlDataSource database, IHttpClientFactory clients,
     IConfiguration configuration, ILogger<EvaluacionMlController> logger) : ControllerBase
 {
+    [HttpGet("/api/modelo/resultados")]
+    public async Task<IActionResult> Resultados([FromQuery] int sensorId, [FromQuery] long despuesDe = 0,
+        [FromQuery] int limite = 50, [FromHeader(Name = "X-Api-Key")] string? apiKey = null,
+        CancellationToken cancellationToken = default)
+    {
+        var clave = configuration["Iot:ApiKey"];
+        if (string.IsNullOrWhiteSpace(clave))
+            return Problem(statusCode: 503, title: "Falta configurar Iot:ApiKey.");
+        if (apiKey is null || !CryptographicOperations.FixedTimeEquals(
+            SHA256.HashData(Encoding.UTF8.GetBytes(clave)), SHA256.HashData(Encoding.UTF8.GetBytes(apiKey))))
+            return Unauthorized();
+        if (sensorId <= 0 || despuesDe < 0 || limite is < 1 or > 100)
+            return BadRequest(new { error = "sensorId positivo, despuesDe no negativo y limite entre 1 y 100." });
+        try
+        {
+            await using var connection = await database.OpenConnectionAsync(cancellationToken);
+            await using var command = new NpgsqlCommand("""
+                SELECT r.id, r.periodo_inicio, r.periodo_fin, r.entrada_sha256, r.resultado, r.creado_en
+                FROM public.ml_demo_resultado r JOIN public.ml_demo_version v ON v.version=r.version
+                WHERE v.sensor_id=@sensor AND r.id>@despues ORDER BY r.id LIMIT @limite
+                """, connection);
+            command.Parameters.AddWithValue("sensor", sensorId);
+            command.Parameters.AddWithValue("despues", despuesDe);
+            command.Parameters.AddWithValue("limite", limite);
+            var items = new List<object>();
+            long cursor = despuesDe;
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                cursor = reader.GetInt64(0);
+                items.Add(new { id = cursor, periodo_inicio = reader.GetDateTime(1), periodo_fin = reader.GetDateTime(2),
+                    entrada_sha256 = reader.GetString(3), resultado = JsonSerializer.Deserialize<JsonElement>(reader.GetString(4)),
+                    creado_en = reader.GetDateTime(5) });
+            }
+            return Ok(new { ambito = "demostracion", items, siguiente_despues_de = cursor });
+        }
+        catch (Exception ex) when (ex is NpgsqlException or JsonException
+            || ex is OperationCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            return Problem(statusCode: 503, title: "No se pudo consultar resultados. Comprueba la migración y conexión.");
+        }
+    }
+
     [HttpPost]
     [RequestSizeLimit(4096)]
     public async Task<IActionResult> Evaluar(SolicitudEvaluacionMl solicitud,
@@ -39,6 +85,8 @@ public sealed class EvaluacionMlController(
         if (apiKey is null || !CryptographicOperations.FixedTimeEquals(
             SHA256.HashData(Encoding.UTF8.GetBytes(clave)), SHA256.HashData(Encoding.UTF8.GetBytes(apiKey))))
             return Unauthorized();
+        if (solicitud.GuardarResultado && !configuration.GetValue<bool>("Ml:PersistenciaDemoHabilitada"))
+            return Problem(statusCode: 503, title: "La persistencia de demostración no está habilitada. Aplica la migración y configura Ml:PersistenciaDemoHabilitada.");
         if (solicitud.Proposito == "pronostico" ? solicitud.HorizonteH is not (1 or 3 or 6) : solicitud.HorizonteH != 0)
             return BadRequest(new { error = "Pronóstico requiere horizonteH 1, 3 o 6; los otros propósitos requieren 0." });
         var inicio = solicitud.HoraInicio.UtcDateTime;
@@ -190,6 +238,16 @@ public sealed class EvaluacionMlController(
                 || resultado.GetProperty("nodo_id").GetInt32() != nodoId
                 || resultado.GetProperty("estado").GetString() is not ("evaluado_demo" or "fuera_dominio"))
                 return Problem(statusCode: 502, title: "Resultado ML incompatible con la solicitud.");
+            if (solicitud.GuardarResultado)
+            {
+                var resultadoId = await ResultadosMlStore.Guardar(database, solicitud.SensorId, nodoId,
+                    perfil, solicitud.Proposito, solicitud.Variable, solicitud.HorizonteH, inicio, fin,
+                    ResultadosMlStore.EntradaCanonica(valores, cobertura, intervalo, coberturaMinima), resultado, cancellationToken);
+                var salida = JsonNode.Parse(resultado.GetRawText())!.AsObject();
+                salida["persistido"] = true;
+                salida["resultado_id"] = resultadoId;
+                return Ok(salida);
+            }
             return Ok(resultado);
         }
         catch (Exception ex) when (ex is HttpRequestException or NpgsqlException or JsonException

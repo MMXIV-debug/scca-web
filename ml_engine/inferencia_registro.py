@@ -109,6 +109,12 @@ class ServicioRegistro:
                 'entrada_agregado_s': entrada['entrada_agregado_s'] if entrada else None,
                 'intervalo_s': entrada['intervalo_s'] if entrada else None,
                 'completitud_minima': entrada['politica']['completitud_minima'] if entrada else None,
+                # Copia de evaluación sin rutas locales, secretos ni objeto serializado.
+                'modelo_metadatos': {k: entrada[k] for k in (
+                    'version', 'perfil', 'proposito', 'variable', 'horizonte_h',
+                    'algoritmo', 'sha256', 'dataset_sha256', 'politica',
+                    'variables_entrada', 'dominio', 'entrada_agregado_s', 'intervalo_s',
+                    'metricas', 'particiones', 'creado_en') if k in entrada} if entrada else None,
                 'valor': None, 'es_anomalia': None}
 
     def estado(self, seleccion):
