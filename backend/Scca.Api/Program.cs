@@ -7,7 +7,17 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
-    options.SwaggerDoc("v1", new() { Title = "SCCA · Calidad del aire", Version = "v1" }));
+{
+    options.SwaggerDoc("v1", new() { Title = "SCCA · Calidad del aire", Version = "v1" });
+    options.AddSecurityDefinition("IoT", new Microsoft.OpenApi.OpenApiSecurityScheme
+    {
+        Type = Microsoft.OpenApi.SecuritySchemeType.ApiKey,
+        In = Microsoft.OpenApi.ParameterLocation.Header,
+        Name = "X-Api-Key",
+        Description = "Clave de la instalación configurada en Iot:ApiKey."
+    });
+    options.OperationFilter<Scca.Api.Services.OperacionSwagger>();
+});
 
 // Configurar la conexión con PostgreSQL.
 var connectionString =
