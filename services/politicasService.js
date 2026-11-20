@@ -119,7 +119,7 @@ async function vigente(pool) {
   if (!rows.length) throw fallo(503, 'No hay una política vigente.');
   return rows[0];
 }
-async function crearPolitica(pool, usuario, body) {
+async function guardarPolitica(pool, usuario, body, id = null) {
   const p = validarPolitica(body),
     c = await pool.connect();
   try {
@@ -130,40 +130,45 @@ async function crearPolitica(pool, usuario, body) {
       [usuario],
     );
     if (!admin.rowCount) throw fallo(403, 'Administrador activo requerido.');
-    const anterior = await vigente(c);
+    const anterior = id === null ? await vigente(c) : (await c.query(
+      'SELECT * FROM politica_ml WHERE id=$1 AND eliminada_en IS NULL FOR UPDATE', [id],
+    )).rows[0];
+    if (!anterior) throw fallo(404, 'Política inexistente.');
     if (anterior.version !== p.version_anterior)
       throw fallo(409, 'La política cambió. Actualiza antes de guardar.');
     for (const id of Object.keys(p.configuracion.intervalos_sensor)) {
       if (!(await c.query('SELECT id FROM sensor WHERE id=$1', [id])).rowCount)
         throw fallo(400, 'Sensor inexistente: ' + id);
     }
-    const { rows } = await c.query(
-      `INSERT INTO politica_ml(version,referencia_fuente_id,creado_por,motivo,agregado_min,completitud_min_pct,colocacion_dias,pares_minimos,test_pct,mejora_rmse_min_pct,sin_datos_seg,configuracion)
- VALUES($1,$2,$3,$4,60,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-      [
-        anterior.version + 1,
-        anterior.referencia_fuente_id,
-        usuario,
-        p.motivo.trim(),
-        p.completitud_min_pct,
-        p.colocacion_dias,
-        p.pares_minimos,
-        p.test_pct,
-        p.mejora_rmse_min_pct,
-        p.sin_datos_seg,
-        p.configuracion,
-      ],
-    );
-    await c.query('UPDATE politica_ml SET vigente_hasta=$2 WHERE id=$1', [
-      anterior.id,
-      rows[0].vigente_desde,
-    ]);
+    const valores = [p.motivo.trim(), p.completitud_min_pct, p.colocacion_dias, p.pares_minimos,
+      p.test_pct, p.mejora_rmse_min_pct, p.sin_datos_seg, p.configuracion];
+    let guardada;
+    if (id === null) {
+      const alta = await c.query(
+        `INSERT INTO politica_ml(version, referencia_fuente_id, creado_por, motivo, completitud_min_pct,
+            colocacion_dias, pares_minimos, test_pct, mejora_rmse_min_pct, sin_datos_seg, configuracion)
+         SELECT max(version)+1, $9, $10, $1, $2, $3, $4, $5, $6, $7, $8 FROM politica_ml RETURNING *`,
+        [...valores, anterior.referencia_fuente_id, usuario],
+      );
+      guardada = alta.rows[0];
+      await c.query('UPDATE politica_ml SET vigente_hasta=$2 WHERE id=$1',
+        [anterior.id, guardada.vigente_desde]);
+    } else {
+      const cambio = await c.query(
+        `UPDATE politica_ml SET motivo=$1, completitud_min_pct=$2, colocacion_dias=$3, pares_minimos=$4,
+           test_pct=$5, mejora_rmse_min_pct=$6, sin_datos_seg=$7, configuracion=$8 WHERE id=$9 RETURNING *`,
+        [...valores, id],
+      );
+      guardada = cambio.rows[0];
+    }
     await c.query(
-      "INSERT INTO auditoria_evento(usuario_id,entidad,entidad_id,accion,motivo,datos_despues,politica_id) VALUES($1,'politica_ml',$2::int,'crear',$3,$4,$2::int)",
-      [usuario, rows[0].id, p.motivo.trim(), JSON.stringify(rows[0])],
+      `INSERT INTO auditoria_evento(usuario_id,entidad,entidad_id,accion,motivo,datos_antes,datos_despues,politica_id)
+       VALUES($1,'politica_ml',$2::int,$3,$4,$5,$6,$2::int)`,
+      [usuario, guardada.id, id === null ? 'crear' : 'actualizar', guardada.motivo,
+        id === null ? null : anterior, guardada],
     );
     await c.query('COMMIT');
-    return rows[0];
+    return guardada;
   } catch (e) {
     await c.query('ROLLBACK');
     throw e;
@@ -171,4 +176,4 @@ async function crearPolitica(pool, usuario, body) {
     c.release();
   }
 }
-module.exports = { vigente, crearPolitica, validarPolitica };
+module.exports = { vigente, crearPolitica: guardarPolitica, guardarPolitica, validarPolitica };

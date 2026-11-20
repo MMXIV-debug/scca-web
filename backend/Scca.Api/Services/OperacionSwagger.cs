@@ -20,24 +20,31 @@ public sealed class OperacionSwagger : IOperationFilter
         }];
 
         var path = context.ApiDescription.RelativePath;
-        if (operation.RequestBody?.Content?.TryGetValue("application/json", out var json) != true) return;
-        if (path == "api/ml/politicas")
+        if (context.ApiDescription.HttpMethod == "DELETE")
         {
-            operation.Description = "Usa la versión vigente como version_anterior. La operación crea otra versión y cierra la anterior.";
+            operation.Description = path == "api/ml/politicas/{id}"
+                ? "Da de baja la política. Si es la vigente, recupera la anterior. Debe quedar una vigente y sin modelos vinculados a la que se elimina."
+                : "Elimina el registro y conserva el cambio en auditoría. Las dependencias impiden la baja.";
+        }
+        var editar = context.ApiDescription.HttpMethod == "PUT";
+        if (operation.RequestBody?.Content?.TryGetValue("application/json", out var json) != true) return;
+        if (path == "api/ml/politicas" || (editar && path == "api/ml/politicas/{id}"))
+        {
+            operation.Description = editar ? "Modifica la política indicada. Usa su número de versión en version_anterior." : "Usa la versión vigente como version_anterior. La operación crea otra versión y cierra la anterior.";
             json!.Example = JsonNode.Parse("""
                 {"version_anterior":1,"motivo":"Ajuste del intervalo de recepción","completitud_min_pct":75,"colocacion_dias":30,"pares_minimos":540,"test_pct":30,"mejora_rmse_min_pct":20,"sin_datos_seg":300,"configuracion":{"factor_sin_datos":2,"intervalos_sensor":{},"alertas_ambientales":[],"alertas_predictivas":[]}}
                 """);
         }
-        if (path == "api/ml/modelos")
+        if (path == "api/ml/modelos" || (editar && path == "api/ml/modelos/{id}"))
         {
-            operation.Description = "El servicio ML registra una versión candidata. Usa una pareja sensor-variable y una política existentes.";
+            operation.Description = editar ? "Actualiza el modelo indicado y conserva su estado." : "El servicio ML registra una versión candidata. Usa una pareja sensor-variable y una política existentes.";
             json!.Example = JsonNode.Parse("""
                 {"sensorId":1,"variableId":1,"politicaId":1,"version":1,"algoritmo":"random_forest","parametros":{"n_estimators":100}}
                 """);
         }
-        if (path == "api/ml/validaciones")
+        if (path == "api/ml/validaciones" || (editar && path == "api/ml/validaciones/{id}"))
         {
-            operation.Description = "Añade una evaluación al historial del modelo bajo la política con la que fue registrado.";
+            operation.Description = editar ? "Actualiza la evaluación y comprueba sus métricas con la política indicada." : "Añade una evaluación al historial del modelo bajo la política con la que fue registrado.";
             json!.Example = JsonNode.Parse("""
                 {"modeloId":1,"politicaId":1,"pares":600,"estado":"apto","maeOrig":2,"rmseOrig":2,"sesgoOrig":0,"maeMl":1,"rmseMl":1,"sesgoMl":0,"mejoraRmsePct":50}
                 """);
