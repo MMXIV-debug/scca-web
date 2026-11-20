@@ -22,4 +22,14 @@ Pruebas: 51 Python y 4 Node correctas; 19 comprobaciones integradas sobre Postgr
 
 Respaldo anterior a la activación: `C:\Users\ykira\scca-web_backup\arranque-20261119`, con dump PostgreSQL, configuración y registro de modelos. Se conserva también el respaldo anterior a las correcciones. No se creó commit ni se publicaron credenciales.
 
-Inicio habitual: `npm.cmd start`. La alerta ambiental PM2.5 a 24 horas conserva su umbral y cobertura; las series originales no usan los datos externos de entrenamiento para ocultar huecos.
+Inicio habitual: `npm.cmd start` o `Iniciar SCCA.cmd`. La alerta ambiental PM2.5 a 24 horas conserva su umbral y cobertura; las series originales no usan los datos externos de entrenamiento para ocultar huecos.
+
+## Avance posterior — 19/11/2026 (cierre visual, idempotencia y despliegue limpio)
+
+- **Idempotencia JSONB con respaldo Open-Meteo (`backend/Scca.Api/Services/ResultadosMlStore.cs`):** Al repetir la evaluación horaria de pronósticos que consultan Open-Meteo en arranque, la marca `entrada_fuente.procedencia.consultado_en` cambia en cada consulta. La comparación en `ResultadosMlStore.Guardar` excluye ahora esa ruta (`#- '{entrada_fuente,procedencia,consultado_en}'`), evitando `InvalidOperationException` y devolviendo los mismos `resultado_id` sin marcar errores en `/api/admin/ml/operacion`.
+- **Panel de visualizador (`public/visualizador.html`, `public/js/visualizador.js`, `public/css/styles.css`, `server.js`):** Se integró el carrusel de tres gráficos con `Chart.js` (`PM1/PM2.5/PM10`, `Temperatura/Humedad relativa`, `CO` con marcador `VOC: próximamente`), el cuadro lateral de media semanal, el ajuste `req.query.horas` en `/api/visualizador/series` y la paleta/flechas/indicadores en vivo para modo oscuro. Ver [visualizador-correcciones.md](visualizador-correcciones.md) y [chartjs-visualizador.md](chartjs-visualizador.md).
+- **Verificación integrada en vivo (con cuentas reales `admin` y `prueba1`):**
+  - Arranque completo con `Iniciar SCCA.cmd --sin-navegador` (`Node.js v26.13.0`, `Python 3.15.2`, `.NET SDK 10.0.401`), `0` errores y `0` advertencias en la compilación `.NET`, procesamiento automático ML `completado` con `errores: []` y comprobación de permisos `403` para visualizador en rutas administrativas.
+  - Verificación visual en Chrome (solo lectura) en `/visualizador.html` y `/dashboard.html` (todas las pestañas y consulta de `Reportes ML` para el sensor `1`), con `0` errores propios en consola y `0` fallos HTTP en `/api/...`, más validación del contraste en modo claro/oscuro.
+- **Instalador para equipo limpio (`instalar.ps1` y `Iniciar SCCA.cmd`):** Automatiza la instalación con `winget` (Node LTS, Python 3.12+ y .NET SDK 10.0), `.venv`, `npm ci`, `dotnet restore`, creación guiada de `.env` sin BOM y preparación inicial del registro ML. Ver [preparar-equipo.md](preparar-equipo.md).
+- **Detalle técnico de APIs y ML:** Consolidado en [arquitectura-apis-modelo-ml.md](arquitectura-apis-modelo-ml.md).

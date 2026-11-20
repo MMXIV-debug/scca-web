@@ -1,5 +1,7 @@
 # Revisión administrativa de cuarentena
 
+Actualización del 19/11/2026: la migración `05_revision_cuarentena.sql` (y las migraciones `07`–`10`) ya están aplicadas en la base compartida, la revisión admite además clasificación humana de anomalías (`clasificacion` en `POST /api/admin/cuarentena/decisiones`) consumida por el entrenador supervisado y la interfaz se integró en `dashboard.html#seccion-cuarentena` (`/cuarentena.html` redirige allí) con verificación visual en Chrome. Ver [CORRECCIONES_2026-11-19.md](CORRECCIONES_2026-11-19.md) y [visualizador-correcciones.md](visualizador-correcciones.md). El texto siguiente corresponde a la entrega inicial.
+
 Entrega local: listado, decisiones definitivas y pantalla administrativa. No altera el detector ni genera alertas. Una anomalía estadística puede ser contaminación real; el administrador debe revisar evidencia antes de descartar.
 
 ## Preparación local

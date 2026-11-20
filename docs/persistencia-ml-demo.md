@@ -1,5 +1,7 @@
 # Persistencia de resultados horarios — entrega 4
 
+Actualización del 19/11/2026: la migración `04_resultados_ml_demo.sql` ya se encuentra aplicada en la base compartida, el panel administrativo consulta estos resultados desde `/api/admin/ml/reportes` en `dashboard.html`, el trabajador automático (`procesamientoMlService.js`) persiste las horas cerradas y `ResultadosMlStore.Guardar` excluye `entrada_fuente.procedencia.consultado_en` al verificar idempotencia con Open-Meteo. Ver [ARRANQUE_ML_2026-11-19.md](ARRANQUE_ML_2026-11-19.md) y [arquitectura-apis-modelo-ml.md](arquitectura-apis-modelo-ml.md). Las referencias abajo sobre migración pendiente en nube y acceso administrativo corresponden al cierre histórico de la entrega 4.
+
 Esta entrega guarda resultados **de demostración** y permite consultar su historial. No cambia lecturas originales, no escribe en `lectura_corregida` y no activa resultados como mediciones reales del dashboard. No genera alertas todavía.
 
 ## Migración

@@ -1,5 +1,7 @@
 # Alertas técnicas por falta de recepción
 
+Actualización del 19/11/2026: la migración `06_alertas_tecnicas.sql` ya está aplicada en la base compartida, el umbral usa `politica_ml` cuando `ML_POLITICA_VERSIONADA=true` (junto con `factor_sin_datos` e `intervalos_sensor`), la gestión se integró en `dashboard.html#seccion-alertas` (`/alertas.html` redirige allí), el visualizador consulta avisos vía `GET /api/visualizador/alertas` y las alertas ambientales/predictivas se implementaron en `services/alertasAmbientalesService.js`. Ver [CORRECCIONES_2026-11-19.md](CORRECCIONES_2026-11-19.md) y [arquitectura-apis-modelo-ml.md](arquitectura-apis-modelo-ml.md). El cuerpo siguiente conserva las notas históricas de la entrega inicial.
+
 Entrega local. Usa las tablas existentes `alerta` y `auditoria_evento`. No cambia el estado administrativo de nodo ni decide que el hardware está averiado. No implementa todavía umbrales ambientales EPA ni alertas predictivas.
 
 ## Preparación local

@@ -1,63 +1,155 @@
-# SCCA
+# SCCA — Sistema de Monitoreo y Corrección de Calidad del Aire
 
-Sistema de Monitoreo y Corrección de Calidad del Aire. Versión recibida el 16/11/2026.
+SCCA es un proyecto en desarrollo orientado al monitoreo y la corrección de mediciones de calidad del aire. Integra lecturas de sensores y datos de simulación en una plataforma web, con herramientas para consultar mediciones, gestionar usuarios, revisar alertas y evaluar muestras mediante modelos de aprendizaje automático.
 
-## Aplicación web
+**El proyecto continúa en proceso de implementación, pruebas y validación.** Las funcionalidades disponibles forman parte de una versión de trabajo; la integración con dispositivos y los modelos de aprendizaje automático siguen en evaluación y mejora. Los resultados de demostración no constituyen una validación de precisión ambiental.
 
-Requiere Node.js (con fetch integrado), npm, .NET 10 SDK, PostgreSQL iniciado y el entorno Python .venv con requirements.txt instalado.
+**Repositorio:** [MMXIV-debug/scca-web](https://github.com/MMXIV-debug/scca-web)
+
+**Versión de la API .NET:** ASP.NET Core 10 sobre .NET 10 (`net10.0`). El iniciador instala .NET SDK 10 si falta para compilar y ejecutar esta API.
+
+## Integrantes
+
+| Nombre | Usuario de GitHub |
+| --- | --- |
+| Mateo Morales Guzman | [MMXIV-debug](https://github.com/MMXIV-debug) |
+| Aneli Vargas Ortiz | [vargasortizlizaneli](https://github.com/vargasortizlizaneli) |
+| Deibi Cruz Gomez | [DeibiCruz](https://github.com/DeibiCruz) |
+
+## Inicio rápido
+
+**Para ejecutar el proyecto en Windows, hacer doble clic en `Iniciar SCCA.cmd`.** Este archivo prepara las dependencias necesarias, inicia los componentes del sistema y abre la aplicación en el navegador utilizando la configuración entregada por el equipo.
+
+**La base de datos PostgreSQL está alojada en la nube y ya está preparada para utilizar el proyecto. No es necesario instalar un servidor de base de datos, aplicar migraciones ni cargar datos de prueba para ejecutar la entrega.** Se requiere conexión a Internet y conservar el archivo `.env` con la configuración proporcionada.
+
+## Instrucciones para ejecutar el proyecto
+
+1. Descargar o clonar el [repositorio del proyecto](https://github.com/MMXIV-debug/scca-web). Si se descarga como ZIP, extraer todo su contenido antes de ejecutarlo.
+2. Abrir la carpeta del proyecto y conservar el archivo `.env` proporcionado por el equipo, con sus credenciales y opciones actuales.
+3. Hacer doble clic en **Iniciar SCCA.cmd**.
+4. Esperar a que termine la preparación. La primera ejecución puede tardar varios minutos porque instala las herramientas y dependencias que falten. Si Windows solicita permisos para instalarlas, aceptarlos para completar la instalación.
+5. Cuando aparezca **SCCA listo**, utilizar la aplicación que se abre en el navegador. Si no se abre automáticamente, ingresar a [http://localhost:3000](http://localhost:3000).
+6. Mantener abierta la ventana del iniciador mientras se utiliza el sistema. Para finalizar, presionar **Ctrl+C** en esa ventana.
+
+El equipo debe contar con Windows 10/11 y conexión a Internet. Si faltan herramientas, el instalador utiliza `winget` para instalarlas; por eso debe estar disponible **App Installer / Instalador de aplicación** de Windows.
+
+También se puede iniciar desde PowerShell, ubicado en la carpeta del proyecto:
 
 ```powershell
-npm ci
-npm start
+& '.\Iniciar SCCA.cmd'
 ```
 
-Con doble clic en "Iniciar SCCA.cmd" o ejecutando npm start se compila la API y se inician Python/ML, API, web y simulador. La web no depende de que Open-Meteo acepte una primera muestra: el simulador reintenta sus fallos sin derribar los demás servicios. En PowerShell, si npm.ps1 está bloqueado, ejecutar npm.cmd start o node iniciar.js. Mantener la ventana abierta y usar Ctrl+C para detener los procesos. Si hay una ejecución anterior ocupando los puertos, cerrarla primero. PostgreSQL debe estar funcionando antes de iniciar. Para arrancar únicamente la web, usar npm run start:web.
+## Cómo funciona Iniciar SCCA.cmd
 
-Configurar IOT_API_KEY en .env con la misma API_KEY del ESP32. Los puertos predeterminados son PORT=3000, API_PORT=5051 y ML_PORT=8000. Al cambiar API_PORT, actualizar también la URL del ESP32. Para omitir la apertura del navegador, usar npm start -- --sin-navegador.
+`Iniciar SCCA.cmd` se ubica automáticamente en la carpeta del proyecto y ejecuta `instalar.ps1`. Este script:
 
-Abrir http://localhost:3000 (o el puerto configurado). El archivo `.env` contiene `DATABASE_URL`, `JWT_SECRET` y, opcionalmente, `PORT`. Los archivos de entorno y secretos se configuran localmente y están excluidos de Git. No publicar credenciales ni respaldos de la base.
+1. Detecta Node.js, Python y .NET SDK 10; instala las herramientas que falten mediante `winget`.
+2. Instala las dependencias de Node.js, prepara el entorno de Python con `requirements.txt` y restaura los paquetes de .NET cuando corresponde.
+3. Comprueba el archivo `.env` y reutiliza sus valores configurados. Si falta, crea uno desde la plantilla y solicita la conexión a la base en la nube; para ejecutar la entrega, utilizar el archivo configurado por el equipo.
+4. Intenta preparar el registro inicial de modelos ML de demostración si todavía no existe.
+5. Ejecuta `iniciar.js`, que comprueba el acceso a la base en la nube, compila la API .NET e inicia el servicio Python/ML, la API, el panel web y el simulador.
+6. Abre la aplicación en el navegador cuando la API y el panel están disponibles.
 
-Antes de probar la versión con jerarquía de administradores, ejecutar una vez `db/03_jerarquia_admin.sql` sobre la base existente usando el propietario de las tablas. La migración agrega `admin_principal` y `administrador_desde`, y requiere una cuenta `admin` activa y aprobada. El iniciador comprueba la conexión a PostgreSQL, pero esta migración se aplica por separado.
+## Accesos y Swagger
 
-Los scripts de `db/` son referencias de la base de datos. Revisarlos antes de ejecutarlos: no importarlos automáticamente sobre una base existente.
+Con el iniciador en ejecución y los puertos predeterminados:
 
-## Componentes Python
+| Servicio | Dirección |
+| --- | --- |
+| Aplicación web | [http://localhost:3000](http://localhost:3000) |
+| Swagger de la API .NET | [http://localhost:5051/swagger](http://localhost:5051/swagger) |
+| Estado de la API y conexión a la nube | [http://localhost:5051/api/estado](http://localhost:5051/api/estado) |
+| Swagger del panel Node.js | [http://localhost:3000/api-docs](http://localhost:3000/api-docs) |
+
+Para comprobar la conexión desde Swagger:
+
+1. Abrir [Swagger de la API .NET](http://localhost:5051/swagger).
+2. Seleccionar `GET /api/estado`.
+3. Presionar **Try it out → Execute**.
+4. Comprobar que devuelva HTTP 200 con `api: "disponible"` y `postgresql: "conectado"`.
+
+Los endpoints protegidos requieren la credencial correspondiente en **Authorize**: clave IoT (`X-Api-Key`), token de administrador o clave de servicio ML (`X-ML-Key`). El token de sesión se obtiene mediante `POST /api/login` del panel con una cuenta autorizada.
+
+## Configuración de la base en la nube
+
+La aplicación utiliza `DATABASE_URL` del archivo `.env` para conectarse a PostgreSQL en la nube. El iniciador comparte esa configuración con el panel, la API .NET y Python.
+
+**Conservar el `.env` entregado y no reemplazarlo por `.env.example`.** Las claves actuales permiten mantener la conexión y la integración entre los componentes. Si no se dispone de ese archivo, solicitar al equipo la configuración de acceso antes de iniciar.
+
+Ejemplo ilustrativo de la cadena de conexión, **sin credenciales reales**:
+
+```dotenv
+DATABASE_URL=postgresql://USUARIO:CLAVE@HOST_NUBE:5432/sistema_calidad_aire?sslmode=require
+```
+
+Este ejemplo no debe sustituir la conexión configurada. Las credenciales reales no se reproducen en el README.
+
+## Si el proyecto no abre
+
+- **Primera ejecución:** esperar a que finalicen las instalaciones y la compilación; mantener Internet disponible.
+- **Puerto ocupado:** cerrar la ejecución anterior de SCCA y volver a abrir `Iniciar SCCA.cmd`.
+- **Error de conexión:** comprobar Internet y que se conserve el `.env` proporcionado por el equipo.
+- **Falta `winget`:** instalar o actualizar App Installer desde Microsoft Store y ejecutar nuevamente el iniciador.
+- **El navegador no se abre:** ingresar a [http://localhost:3000](http://localhost:3000) cuando la consola indique **SCCA listo**.
+
+## Referencia técnica
+
+Esta sección amplía el funcionamiento del sistema. Para ejecutar la entrega, seguir las instrucciones de inicio del principio del README.
+
+### Componentes del proyecto
+
+| Archivo o carpeta | Función |
+| --- | --- |
+| `Iniciar SCCA.cmd`, `instalar.ps1` e `iniciar.js` | Preparación de dependencias y arranque coordinado de los servicios. |
+| `server.js` | Servidor Node.js/Express, autenticación, rutas HTTP y consultas del panel. |
+| `backend/Scca.Api/` | API ASP.NET Core, recepción de muestras IoT y operaciones de integración con ML. |
+| `services/usuarioService.js` y `services/validadorEstados.js` | Operaciones de usuarios, auditoría y transiciones permitidas. |
+| `services/alertasService.js` y `services/alertasAmbientalesService.js` | Cálculo de alertas persistidas que los paneles consultan por HTTP. |
+| `services/correctorStrategy.js` y `services/eventosLectura.js` | Utilidades legadas; la inferencia versionada y las alertas actuales utilizan los servicios específicos. |
+| `public/` | Páginas, estilos y JavaScript del navegador. |
+| `python/simulador.py` | Obtención y envío de lecturas de origen simulado. |
+| `ml_engine/` | Preparación de datasets, entrenamiento evaluado, registro de modelos e inferencia con Python/FastAPI. |
+| `db/` | Scripts de referencia del esquema y su evolución; no se necesitan ejecutar para abrir la entrega. |
+| `tests/` | Contratos y pruebas automatizadas del proyecto. |
+
+### Simulación y recepción de lecturas
+
+El iniciador ejecuta el simulador con la misma configuración del resto del sistema. Selecciona un sensor activo de origen `simulado` asociado a `CO`, `PM1`, `PM10` y `PM25`, y consulta sus unidades y coordenadas en la base en la nube. Si hay varios candidatos, `SIMULADOR_SENSOR_ID` permite indicar cuál utilizar; no depende de un identificador fijo.
+
+El simulador consulta Open-Meteo y estima PM1 como el 70 % de PM2.5. Envía las cuatro variables a `POST /api/lecturas` con la clave de la instalación. La API evalúa la muestra mediante ML y devuelve `guardada` o `cuarentena`. Se intenta enviar una muestra al arrancar y luego cada 900 segundos; `SIMULADOR_INTERVALO_S` permite modificar ese intervalo. Si el proveedor falla, el simulador informa el problema y reintenta sin detener el panel.
+
+El ESP32 debe estar encendido y configurado con la red, la dirección de la API y los identificadores de la instalación. `IOT_API_KEY` debe coincidir con `API_KEY` del dispositivo. Si cambia `API_PORT`, también debe actualizarse la dirección de destino del ESP32.
+
+Los paneles de administrador y visualizador actualizan las mediciones cada 15 segundos mientras están visibles.
+
+### Modelos y entrenamiento
+
+- `ml_engine/base_datos.py` utiliza `DATABASE_URL` para preparar datasets. El entrenamiento consume esos archivos sin consultar directamente la base.
+- `ml_engine/entrenador.py` ejecuta el ciclo evaluado cuando se invoca sin argumentos. También admite `evaluar --dataset RUTA --proposito calibracion|pronostico|anomalias` y `revertir --clave CLAVE --motivo MOTIVO`. El registro de demostración conserva versiones anteriores y solo activa candidatos que cumplen los criterios de evaluación.
+- `ml_engine/inferencia.py` expone el servicio FastAPI utilizado por la integración ML. Los archivos `.joblib` forman parte de los artefactos de modelos del proyecto.
+
+PM2.5 contempla horizontes de pronóstico de 1, 3 y 6 horas. La disponibilidad de resultados reales depende de contar con datos y modelos aptos, de acuerdo con el estado de desarrollo indicado al inicio.
+
+### Opciones de ejecución para desarrollo
+
+Con las dependencias ya preparadas por el instalador, estos comandos permiten variar el arranque desde PowerShell:
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
+# Ejecutar el iniciador sin abrir el navegador.
+& '.\Iniciar SCCA.cmd' --sin-navegador
+
+# Ejecutar el iniciador sin simulador.
+& '.\Iniciar SCCA.cmd' --sin-simulador
+
+# Arrancar los servicios directamente con Node.js.
+npm.cmd start
+
+# Iniciar únicamente el panel web.
+npm.cmd run start:web
 ```
 
-- `python/simulador.py` consulta Open-Meteo y escribe lecturas cada 15 minutos. Requiere sensor 1 y los catálogos esperados. Estima PM1 a partir de PM2.5 e incluye CO.
-- `ml_engine/entrenador.py` sin argumentos ejecuta el ciclo semanal evaluado por compatibilidad con la tarea instalada. También admite `evaluar --dataset RUTA --proposito calibracion|pronostico|anomalias` y `revertir`. Solo activa candidatos aptos de demostración y conserva el anterior. Ver `docs/CORRECCIONES_2026-11-19.md`.
-- `ml_engine/inferencia.py` expone una API FastAPI. Sus entradas deben reconciliarse con las características usadas al entrenar antes de considerar validada la predicción.
-- `ml_engine/base_datos.py` utiliza `DATABASE_URL` del entorno o `.env` local para preparar datasets. El entrenamiento consume esos archivos sin acceder a la base.
+`npm.cmd` permite ejecutar npm desde PowerShell cuando la política de ejecución bloquea `npm.ps1`. Los puertos se configuran en `.env` mediante `PORT=3000`, `API_PORT=5051` y `ML_PORT=8000`; si se cambian, ajustar las direcciones de acceso correspondientes.
 
-Los archivos `.joblib` recibidos se conservan. Su presencia no acredita precisión ni validación ambiental.
+`npm.cmd test` ejecuta los contratos Node.js y las pruebas Python. Estas pruebas son herramientas de desarrollo y no forman parte de los pasos necesarios para abrir el proyecto.
 
-## Organización
-
-- `server.js`: rutas HTTP, autenticación y consultas del panel.
-- `services/usuarioService.js`: operaciones de usuarios y auditoría.
-- `services/validadorEstados.js`: transiciones permitidas.
-- `services/correctorStrategy.js`: utilidad lineal legada. Los modelos complejos se ejecutan mediante la inferencia Python versionada; no se simulan con un factor.
-- `services/eventosLectura.js`: emisor legado. Las alertas persistidas actuales se calculan con `alertasService.js` y `alertasAmbientalesService.js`; el visualizador las consulta por HTTP.
-- `public/`: páginas, estilos y JavaScript del navegador.
-- `ml_engine`: MOdelos guardados, conexion del ML a la base de datos, el entrenador del ML (Estado actual de esqueleto), integracion IoT que se conecta al ESP32
-
-`npm.cmd test` ejecuta contratos Node y las pruebas Python. Las pruebas PostgreSQL se ejecutan únicamente contra bases locales temporales `scca_test_*`.
-
-## Simulación e inicio completo
-
-El iniciador ejecuta python/simulador.py con el mismo entorno del servidor. Selecciona el sensor activo de origen simulado que tenga CO, PM1, PM10 y PM25 y consulta sus unidades en PostgreSQL. Si hay varios candidatos, configurar SIMULADOR_SENSOR_ID en .env.
-
-El simulador consulta Open-Meteo y estima PM1 como el 70 % de PM2.5. Envía las cuatro variables a POST /api/lecturas con la clave del proyecto. La API evalúa la muestra con ML y devuelve guardada o cuarentena. Se envía una muestra al arrancar y luego cada 900 segundos. SIMULADOR_INTERVALO_S permite modificar ese intervalo.
-
-Los fallos del simulador se informan y se reintentan sin detener la web. Para iniciar sin simulador: `node iniciar.js --sin-simulador`. El panel de administrador y el de visualizador actualizan las mediciones cada 15 segundos mientras están visibles.
-
-El ESP32 debe estar encendido y configurado para la red, dirección de la API e identificadores de esa base. PostgreSQL y los catálogos deben estar preparados, incluida la migración de administradores. El iniciador levanta la inferencia con los modelos guardados.
-
-## Integración del 19/11
-
-Consulta `docs/CORRECCIONES_2026-11-19.md` para migraciones 07–10, perfiles, trazabilidad, revisión etiquetada, políticas, alertas, reportes y automatización. En la base compartida esas migraciones ya están aplicadas. PM2.5 conserva los horizontes 1/3/6; los resultados reales siguen pendientes hasta disponer de datos y modelos aptos. No se fabrica una corrección ni se declara validación física por tener un joblib.
+Para ampliar los detalles de implementación, consultar [Correcciones e integración del 19/11](docs/CORRECCIONES_2026-11-19.md) y [Arranque ML](docs/ARRANQUE_ML_2026-11-19.md).

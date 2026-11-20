@@ -1,5 +1,7 @@
 # Estado actual para el responsable de API
 
+Actualización del 19/11/2026: las migraciones `04`–`10` ya fueron aplicadas en la base compartida, las pantallas administrativas viven integradas dentro de `dashboard.html` (Políticas versionadas, Revisión de cuarentena, Machine Learning, Alertas y Reportes ML), el modo de arranque ML y las pruebas integradas están documentados en [CORRECCIONES_2026-11-19.md](CORRECCIONES_2026-11-19.md), [ARRANQUE_ML_2026-11-19.md](ARRANQUE_ML_2026-11-19.md) y [arquitectura-apis-modelo-ml.md](arquitectura-apis-modelo-ml.md).
+
 Actualización de revisión: 18/11/2026. Todas las entregas descritas abajo están publicadas en main hasta d0e6b59. Las secciones posteriores conservan la secuencia histórica; sus pendientes se interpretan según este resumen.
 
 - .NET: POST /api/modelo/evaluar; GET /api/modelo/resultados. X-Api-Key de servicio. guardarResultado opcional y deshabilitado por defecto. Entrada por sensor/hora cerrada, identidad desde BD.

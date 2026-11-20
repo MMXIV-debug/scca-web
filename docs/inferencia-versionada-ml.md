@@ -1,5 +1,7 @@
 # Inferencia versionada — entrega 3
 
+Actualización del 19/11/2026: la persistencia horaria (`guardarResultado`), las rutas añadidas (`/api/v2/modelos/muestra`, `/registro`, `/revertir`, `/inferir-fuente`), la lectura de política versionada (`politica_ml`), la política de arranque `arranque_demo` y la integración con el panel están descritas en [CORRECCIONES_2026-11-19.md](CORRECCIONES_2026-11-19.md), [ARRANQUE_ML_2026-11-19.md](ARRANQUE_ML_2026-11-19.md) y [arquitectura-apis-modelo-ml.md](arquitectura-apis-modelo-ml.md). Las notas de «Lo que todavía falta» de este documento son históricas de la entrega 3.
+
 Conecta el registro local de demostración con Python y ofrece una consulta desde .NET. **No persiste correcciones, pronósticos ni alertas.** Las lecturas originales permanecen intactas. La ingesta ESP32 y el simulador conservan su contrato actual.
 
 ## Endpoint de .NET
