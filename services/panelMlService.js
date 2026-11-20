@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const { vigente, crearPolitica } = require('./politicasService');
+const { vigente, guardarPolitica } = require('./politicasService');
 let entrenamiento = null;
 const fallo = (status, message) => Object.assign(new Error(message), { status });
 async function ml(ruta, body) {
@@ -80,12 +80,20 @@ function crearRouterPanelMl(pool, auth, soloAdmin) {
   router.get(
     '/politicas',
     responder(async () => ({
-      items: (await pool.query('SELECT * FROM politica_ml ORDER BY version DESC LIMIT 100')).rows,
+      items: (await pool.query('SELECT * FROM politica_ml WHERE eliminada_en IS NULL ORDER BY version DESC LIMIT 100')).rows,
     })),
   );
   router.post(
     '/politicas',
-    responder((req) => crearPolitica(pool, req.user.id, req.body)),
+    responder((req) => guardarPolitica(pool, req.user.id, req.body)),
+  );
+  router.put(
+    '/politicas/:id',
+    responder((req) => {
+      const id = Number(req.params.id);
+      if (!Number.isSafeInteger(id) || id < 1) throw fallo(400, 'ID de política inválido.');
+      return guardarPolitica(pool, req.user.id, req.body, id);
+    }),
   );
   router.get(
     '/sensores',
