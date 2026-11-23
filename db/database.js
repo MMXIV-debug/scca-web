@@ -10,6 +10,8 @@ class Database {
         connectionTimeoutMillis: 5000,
         query_timeout: 15000,
         statement_timeout: 15000,
+        keepAlive: true,
+        keepAliveInitialDelayMillis: 10000,
         idleTimeoutMillis: 30000
       });
       // pg retira del pool una conexión inactiva rota. El evento no pertenece a
@@ -29,7 +31,23 @@ class Database {
   }
 
   async connect() {
-    return this.pool.connect();
+    const client = await this.pool.connect();
+    // pg-pool solo escucha los errores de clientes libres. Una transacción
+    // puede perder la red entre consultas (por ejemplo mientras espera una API).
+    // Mantener el listener durante todo el préstamo evita un 'error' sin manejar;
+    // las consultas siguen rechazándose para que el servicio aborte la operación.
+    const onError = error => {
+      console.error('Conexión PostgreSQL en uso interrumpida; la operación no pudo completarse.', {
+        codigo: error.code || 'CONEXION_INTERRUMPIDA'
+      });
+    };
+    client.on('error', onError);
+    const release = client.release;
+    client.release = (...args) => {
+      try { return release(...args); }
+      finally { client.removeListener('error', onError); }
+    };
+    return client;
   }
 }
 

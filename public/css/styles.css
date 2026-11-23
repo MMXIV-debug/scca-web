@@ -539,6 +539,53 @@ body.dashboard-body {
 /* Gráficos del visualizador */
 .grafico-alto { position: relative; height: 320px; padding: 0 2.5rem; }
 .voc-placeholder { position: absolute; top: 8px; right: 3rem; opacity: .85; }
+
+/* Pronóstico: resumen destacado y detalle compacto por hora o por día. */
+.clima-encabezado, .clima-barra, .clima-pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.clima-encabezado { margin-bottom: 1.5rem; }
+.clima-encabezado > :last-child { min-width: 190px; max-width: 100%; }
+.clima-actual {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 14px;
+  background: var(--bs-tertiary-bg);
+}
+.clima-actual[hidden] { display: none; }
+.clima-icono { font-size: 2.75rem; color: var(--bs-secondary-color); }
+.clima-etiqueta { font-size: .75rem; color: var(--bs-secondary-color); }
+.clima-temperatura { font-size: 2.5rem; font-weight: 650; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.clima-temperatura > span { font-size: 1rem; font-weight: 400; }
+.clima-condicion { margin-left: auto; }
+.clima-barra { margin-bottom: .75rem; }
+.clima-tabla { max-height: 340px; border: 1px solid var(--bs-border-color); border-radius: 10px; }
+.clima-tabla thead { position: sticky; top: 0; z-index: 1; background: var(--bs-tertiary-bg); }
+.clima-tabla th { font-size: .75rem; color: var(--bs-secondary-color); font-weight: 600; white-space: nowrap; }
+.clima-tabla td, .clima-tabla th { padding: .75rem 1rem; }
+.clima-tabla td { font-size: .875rem; font-variant-numeric: tabular-nums; }
+.clima-tabla tbody tr:last-child td { border-bottom: 0; }
+.clima-celda-condicion { display: inline-flex; align-items: center; gap: .6rem; white-space: nowrap; }
+.clima-celda-condicion i { color: var(--bs-secondary-color); font-size: 1.1rem; }
+.clima-pie { margin-top: 1rem; gap: .5rem 1rem; }
+.clima-pie small, .clima-pie p { font-size: .72rem; }
+.clima-pie a { color: inherit; text-underline-offset: 3px; }
+@media (max-width: 575px) {
+  .clima-encabezado > :last-child { width: 100%; }
+  .clima-actual { gap: .85rem; padding: 1rem; }
+  .clima-icono { font-size: 2rem; }
+  .clima-condicion { flex-basis: 100%; margin-left: 0; }
+  .clima-tabla td, .clima-tabla th { padding: .65rem .75rem; }
+}
 [data-bs-theme="dark"] #carrusel-graficos .carousel-control-prev-icon,
 [data-bs-theme="dark"] #carrusel-graficos .carousel-control-next-icon { filter: none; }
 [data-bs-theme="dark"] #carrusel-graficos .carousel-indicators [data-bs-target] { background-color: #e4ede7; }

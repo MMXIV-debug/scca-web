@@ -370,4 +370,24 @@ app.get('/api/visualizador/semanal', auth, async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+const { crearClimaService, iniciarClima } = require('./services/climaService');
+const clima = crearClimaService(pool);
+iniciarClima(clima);
+/**
+ * @swagger
+ * /api/visualizador/clima:
+ *   get:
+ *     summary: Condiciones actuales y pronóstico horario y diario persistido por sitio
+ *     tags: [Visualizador]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: Última consulta guardada, vigencia, procedencia, 24 horas y 7 días de pronóstico por sitio.
+ *       503:
+ *         description: No se pudo consultar el registro meteorológico.
+ */
+app.get('/api/visualizador/clima', auth, async (req, res) => {
+  try { res.set('Cache-Control', 'no-store').json(await clima.listar()); }
+  catch { res.status(503).json({ error: 'No se pudo consultar el clima guardado. Se reintentará automáticamente.' }); }
+});
 app.listen(PORT, () => console.log(`Servidor iniciado en http://localhost:${PORT}`));

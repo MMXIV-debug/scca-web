@@ -118,6 +118,36 @@
 
         </div>
 
+        <section class="panel-box clima-panel p-3 p-md-4 mt-3" aria-labelledby="titulo-pronostico">
+          <div class="clima-encabezado">
+            <div>
+              <h2 id="titulo-pronostico" class="h5 fw-bold titulo-scca mb-1">Clima y pronóstico</h2>
+              <p class="small text-secondary mb-0">El tiempo en tus sitios de monitoreo.</p>
+            </div>
+            <div>
+              <label for="clima-sitio" class="form-label small mb-1">Ubicación</label>
+              <select id="clima-sitio" class="form-select form-select-sm" disabled><option>Cargando sitios…</option></select>
+            </div>
+          </div>
+          <div id="clima-actual" class="clima-actual" hidden></div>
+          <div class="clima-barra">
+            <p id="clima-periodo" class="small fw-semibold mb-0">Próximas 24 horas</p>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Vista del pronóstico">
+              <button type="button" class="btn btn-outline-secondary active" data-clima-vista="hora" aria-pressed="true">Por hora</button>
+              <button type="button" class="btn btn-outline-secondary" data-clima-vista="dia" aria-pressed="false">Por día</button>
+            </div>
+          </div>
+          <div class="table-responsive clima-tabla" tabindex="0" aria-label="Detalle del pronóstico">
+            <table class="table align-middle mb-0">
+              <thead id="clima-columnas"><tr><th scope="col">Hora</th><th scope="col">Temperatura</th><th scope="col">Clima</th><th scope="col">Lluvia</th></tr></thead>
+              <tbody id="filas-clima"><tr><td colspan="4" class="text-secondary">Esperando datos de la API…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="clima-pie">
+            <p id="clima-estado" class="small text-secondary mb-0" role="status">Consultando el pronóstico…</p>
+            <small class="text-secondary">Hora de Bolivia · Datos de <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a></small>
+          </div>
+        </section>
       </section>
       
       <!-- SECCIÓN: Sitios y fuentes -->

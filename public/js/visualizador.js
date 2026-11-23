@@ -279,6 +279,82 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) { console.error(e); }
   }
 
+  let sitiosClima = [];
+  let vistaClima = 'hora';
+  const selectorClima = document.getElementById('clima-sitio');
+  function iconoClima(codigo, dia = true) {
+    if ([95, 96, 99].includes(codigo)) return 'cloud-lightning-rain';
+    if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(codigo)) return 'cloud-rain';
+    if ([71, 73, 75, 77, 85, 86].includes(codigo)) return 'cloud-snow';
+    if ([45, 48].includes(codigo)) return 'cloud-fog2';
+    if (codigo === 0) return dia ? 'sun' : 'moon-stars';
+    return codigo === 3 ? 'clouds' : dia ? 'cloud-sun' : 'cloud-moon';
+  }
+  function mostrarClima() {
+    const sitio = sitiosClima.find(s => String(s.sitio_id) === selectorClima.value);
+    const estado = document.getElementById('clima-estado');
+    const actual = document.getElementById('clima-actual');
+    const filas = document.getElementById('filas-clima');
+    actual.replaceChildren();
+    actual.hidden = true;
+    estado.className = 'small text-secondary mb-0';
+    const diario = vistaClima === 'dia';
+    document.getElementById('clima-periodo').textContent = diario ? 'Próximos 7 días · mín. / máx.' : 'Próximas 24 horas';
+    document.getElementById('clima-columnas').innerHTML = `<tr><th scope="col">${diario ? 'Día' : 'Hora'}</th><th scope="col">${diario ? 'Mín. / Máx.' : 'Temperatura'}</th><th scope="col">Clima</th><th scope="col">${diario ? 'Lluvia máx.' : 'Lluvia'}</th></tr>`;
+    if (!sitio?.consulta_id) {
+      estado.textContent = sitio ? 'Todavía no hay una consulta guardada para este sitio. El servidor reintenta automáticamente.' : 'No hay sitios registrados para consultar el clima.';
+      filas.innerHTML = '<tr><td colspan="4" class="text-secondary">Sin datos meteorológicos disponibles.</td></tr>';
+      return;
+    }
+    estado.textContent = `Actualizado: ${formatoHora(sitio.consultado_en)}`;
+    estado.title = `Registro #${sitio.consulta_id} · ${sitio.latitud}, ${sitio.longitud}`;
+    if (sitio.desactualizado) {
+      estado.textContent += ' · Datos pendientes de actualización';
+      estado.className = 'small text-warning-emphasis mb-0';
+    }
+    const d = sitio.datos.find(d => d.tipo === 'actual');
+    if (d) {
+      actual.hidden = false;
+      actual.innerHTML = `<i class="bi bi-${iconoClima(d.codigo_wmo, d.es_dia)} clima-icono" aria-hidden="true"></i>
+        <div><span class="clima-etiqueta">Ahora · estimado</span><div class="clima-temperatura">${Number(d.temperatura_c).toFixed(1)}<span> °C</span></div></div>
+        <div class="clima-condicion"><strong>${esc(d.condicion)}</strong><small class="d-block text-secondary">${esc(formatoHora(d.valido_en))}</small></div>`;
+    }
+    const pronostico = diario ? sitio.diario || [] : sitio.datos.filter(d => d.tipo === 'pronostico');
+    filas.innerHTML = pronostico.map(d => `<tr>
+      <td class="text-nowrap">${esc(diario ? new Date(d.valido_en).toLocaleDateString('es-BO', { timeZone: 'America/La_Paz', weekday: 'short', day: '2-digit', month: 'short' }) : formatoHora(d.valido_en))}</td>
+      <td class="fw-semibold text-nowrap">${diario ? `<span class="text-secondary">${Number(d.minima_c).toFixed(1)}°</span> / ${Number(d.maxima_c).toFixed(1)}°` : `${Number(d.temperatura_c).toFixed(1)} °C`}</td>
+      <td><span class="clima-celda-condicion"><i class="bi bi-${iconoClima(d.codigo_wmo, d.es_dia ?? true)}" aria-hidden="true"></i>${esc(d.condicion)}</span></td>
+      <td>${d.probabilidad_lluvia_pct == null ? 'Sin datos' : `${Number(d.probabilidad_lluvia_pct).toFixed(0)} %`}</td>
+    </tr>`).join('') || '<tr><td colspan="4" class="text-secondary py-4 text-center">El pronóstico diario estará disponible en la próxima actualización.</td></tr>';
+  }
+  selectorClima.addEventListener('change', mostrarClima);
+  document.querySelectorAll('[data-clima-vista]').forEach(btn => btn.addEventListener('click', () => {
+    vistaClima = btn.dataset.climaVista;
+    document.querySelectorAll('[data-clima-vista]').forEach(b => {
+      const activo = b === btn;
+      b.classList.toggle('active', activo);
+      b.setAttribute('aria-pressed', String(activo));
+    });
+    mostrarClima();
+  }));
+  async function cargarClima() {
+    try {
+      const r = await fetch('/api/visualizador/clima', { headers: H, cache: 'no-store' });
+      if (!r.ok) throw new Error('Clima no disponible');
+      const datos = await r.json();
+      const seleccion = selectorClima.value;
+      sitiosClima = datos.items;
+      selectorClima.replaceChildren(...sitiosClima.map(s => new Option(s.nombre, String(s.sitio_id))));
+      selectorClima.disabled = !sitiosClima.length;
+      if (sitiosClima.some(s => String(s.sitio_id) === seleccion)) selectorClima.value = seleccion;
+      mostrarClima();
+    } catch {
+      const estado = document.getElementById('clima-estado');
+      estado.className = 'small text-warning-emphasis mb-0';
+      estado.textContent = 'Actualización pendiente. Reintentando…' + (sitiosClima.length ? ' Se muestra la última consulta recibida.' : '');
+    }
+  }
+
   // Botones 24 h / 7 días
   document.querySelectorAll('[data-horas]').forEach(btn => btn.addEventListener('click', () => {
     horasGrafico = Number(btn.dataset.horas);
@@ -327,13 +403,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     cargarGraficos();
     cargarSemanal();
     cargarAlertas();
+    cargarClima();
     let actualizando = false;
 
     setInterval(async () => {
       if (actualizando || document.hidden) return;
       actualizando = true;
       try {
-        await Promise.all([cargarResumen(), cargarSitios(), cargarParametros(), cargarGraficos(), cargarSemanal(), cargarAlertas()]);
+        await Promise.all([cargarResumen(), cargarSitios(), cargarParametros(), cargarGraficos(), cargarSemanal(), cargarAlertas(), cargarClima()]);
       } finally {
         actualizando = false;
       }

@@ -122,6 +122,14 @@ El ESP32 debe estar encendido y configurado con la red, la dirección de la API 
 
 Los paneles de administrador y visualizador actualizan las mediciones cada 15 segundos mientras están visibles.
 
+### Clima y pronóstico del visualizador
+
+Debajo de los gráficos, el visualizador permite seleccionar un sitio y alternar entre el pronóstico por hora (próximas 24 horas) y por día (7 días, con temperatura mínima/máxima, clima y probabilidad máxima de lluvia). Las condiciones actuales se presentan en un resumen y el detalle tiene desplazamiento propio. La fuente se indica discretamente al pie: [Open-Meteo](https://open-meteo.com/en/docs), consultada con las coordenadas registradas de cada sitio; son resultados de modelos meteorológicos, no mediciones de los sensores físicos ni predicciones del motor ML local. Los valores diarios originales se conservan en `clima_consulta.respuesta.daily` y se exponen como `diario` en la API; los registros anteriores sin ese campo permanecen intactos y el servidor obtiene el formato ampliado en el siguiente ciclo.
+
+Al iniciar `server.js` se preparan automáticamente las tablas de `db/13_pronostico_clima.sql` con la conexión configurada. Cada 15 minutos se guarda una consulta por sitio en `clima_consulta` (proveedor, coordenadas, fecha y respuesta original) y sus condiciones actuales y 24 horas futuras en `clima_dato` (fecha de validez UTC, temperatura °C, código WMO, día/noche y probabilidad de lluvia). Las versiones anteriores se conservan. El servidor debe permanecer encendido para registrar nuevas consultas, aunque no haya navegadores abiertos. Las fallas se reintentan cada minuto; la interfaz conserva el último registro e indica si la consulta supera 30 minutos de antigüedad o si la condición actual del proveedor difiere más de una hora del reloj del servidor. El pronóstico se selecciona a partir de la hora del servidor; el registro de recepción y sus intervalos usan ese mismo reloj para evitar inconsistencias con el reloj de PostgreSQL.
+
+`GET /api/visualizador/clima`, con sesión autenticada, devuelve el último registro persistido por sitio y su vigencia. El panel lo consulta cada 15 segundos y presenta las fechas en hora de Bolivia. La cuenta PostgreSQL necesita permiso de creación de tablas para la preparación inicial; si se administra el esquema por separado, aplicar el SQL antes de iniciar y conceder acceso de lectura, inserción y uso de secuencias a la cuenta de la aplicación. No se generan datos meteorológicos ficticios si la API falla.
+
 ### Modelos y entrenamiento
 
 - `ml_engine/base_datos.py` utiliza `DATABASE_URL` para preparar datasets. El entrenamiento consume esos archivos sin consultar directamente la base.
