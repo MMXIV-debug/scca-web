@@ -83,13 +83,28 @@ async function iniciar() {
   if (!clave) throw new Error('Configura IOT_API_KEY en .env con la misma API_KEY del ESP32.');
   if (!process.env.JWT_SECRET) throw new Error('Falta JWT_SECRET en .env.');
   await Promise.all(puertos.map(puertoLibre));
-  const cliente = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 5000 });
-  try {
-    await cliente.connect();
-    await cliente.query('SELECT 1');
-  } catch {
-    throw new Error('PostgreSQL no responde. Comprueba que esté iniciado y revisa DATABASE_URL.');
-  } finally { await cliente.end(); }
+  for (let intento = 1; intento <= 3; intento++) {
+    const cliente = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 10000 });
+    try {
+      await cliente.connect();
+      await cliente.query('SELECT 1');
+      break;
+    } catch (error) {
+      const codigo = error.code;
+      const temporal = ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EAI_AGAIN', 'ENETUNREACH', 'EHOSTUNREACH', '57P03', '53300'].includes(codigo)
+        || /timeout|timed out|connection terminated/i.test(error.message || '');
+      if (!temporal || intento === 3) {
+        const detalle = codigo === '28P01' || codigo === '28000'
+          ? 'PostgreSQL rechazó las credenciales. Revisa el usuario y la contraseña de DATABASE_URL.'
+          : codigo === '3D000'
+            ? 'La base indicada en DATABASE_URL no existe.'
+            : 'No se pudo conectar a PostgreSQL en la nube. Comprueba Internet, el acceso al servidor y DATABASE_URL.';
+        throw new Error(`${detalle} (Código: ${codigo || (temporal ? 'TIMEOUT' : 'DESCONOCIDO')}).`);
+      }
+      console.warn(`PostgreSQL aún no está disponible. Reintentando (${intento}/3)...`);
+    } finally { await cliente.end().catch(() => {}); }
+    await pausa(2000);
+  }
 
   const esquema = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 5000 });
   try {

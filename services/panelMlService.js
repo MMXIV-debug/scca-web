@@ -117,7 +117,30 @@ function crearRouterPanelMl(pool, auth, soloAdmin) {
   );
   router.get(
     '/modelos',
-    responder(() => ml('api/v2/modelos/registro')),
+    responder(async () => {
+      const [registro, datos] = await Promise.all([
+        ml('api/v2/modelos/registro'),
+        pool.query(`
+          SELECT s.id,
+            (SELECT max(l.medido_en) FROM lectura_original l
+             WHERE l.sensor_id=s.id AND l.calidad='valida') AS ultima_lectura,
+            (SELECT count(*)::int FROM (
+              SELECT l.id_muestra FROM lectura_original l
+              JOIN variable v ON v.id=l.variable_id
+              WHERE l.sensor_id=s.id AND l.calidad='valida'
+                AND v.codigo IN ('TEMP','HUM')
+                AND l.medido_en>=date_trunc('hour',now())-interval '48 hours'
+                AND l.medido_en<date_trunc('hour',now())
+              GROUP BY l.id_muestra
+              HAVING count(*)=2 AND count(DISTINCT v.codigo)=2
+                AND min(l.medido_en)=max(l.medido_en)
+            ) completas) AS muestras_completas_48h
+          FROM sensor s WHERE upper(trim(s.modelo))='DHT11' AND s.origen='real' AND s.activo
+          ORDER BY s.id
+        `),
+      ]);
+      return { ...registro, datos_sensores: datos.rows };
+    }),
   );
   router.get(
     '/operacion',

@@ -5,6 +5,10 @@ __pycache__/
 *.py[cod]
 *.log
 
+# Carpetas temporales
+tmp/
+temp/
+
 # Archivos generados por .NET
 **/bin/
 **/obj/

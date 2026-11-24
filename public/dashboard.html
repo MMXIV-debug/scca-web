@@ -286,7 +286,14 @@
             <button id="seccion-modelos-exportar" type="button" class="btn btn-outline-secondary" disabled>Descargar CSV del periodo</button>
           </form>
           <button id="seccion-modelos-actualizar" type="button" class="btn btn-sm btn-outline-secondary my-2"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+          <div id="seccion-modelos-datos-sensores" class="my-3" role="status" aria-live="polite"></div>
+          <h4 class="h6 mt-3">Modelos en uso</h4>
           <div class="table-responsive"><table class="table table-scca align-middle mb-0"><thead id="seccion-modelos-cabecera"></thead><tbody id="seccion-modelos-filas"></tbody></table></div>
+          <details class="mt-4">
+            <summary id="seccion-modelos-historial-resumen">Historial de evaluaciones</summary>
+            <p class="text-secondary mt-2">Intentos anteriores y modelos reemplazados. Consulta el motivo para saber qué falta.</p>
+            <div class="table-responsive"><table class="table table-scca align-middle mb-0"><thead id="seccion-modelos-historial-cabecera"></thead><tbody id="seccion-modelos-historial-filas"></tbody></table></div>
+          </details>
           <button id="seccion-modelos-siguiente" type="button" class="btn btn-outline-secondary mt-3" hidden>Siguiente página</button>
         </div>
       </section>

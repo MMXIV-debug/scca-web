@@ -31,23 +31,16 @@ async function inicializarPanelMl(root) {
     modelos: {
       titulo: 'Machine Learning',
       descripcion:
-        'Modelos y respaldos de demostración. En arranque se distinguen detección no supervisada, pronóstico aprendido y respaldo por persistencia. No acreditan calibración física ni precisión validada de fallos.',
+        'Estos son los modelos que se están usando. Los intentos anteriores se conservan en el historial. Son de demostración y no acreditan calibración física ni precisión validada de fallos.',
       columnas: [
-        'version',
-        'activo',
-        'estado',
-        'algoritmo',
-        'modo_evaluacion',
-        'tipo_pronostico',
-        'perfil',
         'sensor',
         'proposito',
         'variable',
         'horizonte_h',
-        'pares',
+        'estado',
         'razones',
-        'metricas',
-        'creado_en',
+        'algoritmo',
+        'detalles',
       ],
     },
     reportes: {
@@ -129,26 +122,43 @@ async function inicializarPanelMl(root) {
   const acciones = document.createElement('div');
   acciones.className = 'mb-3';
   $('descripcion').after(acciones);
-  function dibujar(items) {
-    $('filas').replaceChildren();
+  function dibujar(items, filas = $('filas')) {
+    filas.replaceChildren();
     const razones = {
       pares_o_periodo_insuficientes: 'Historial o pares insuficientes',
       arranque_sin_validacion_etiquetada: 'Detector de arranque: lectura inusual, sin validación con etiquetas',
       respaldo_persistencia_sin_mejora_demostrada: 'Respaldo: conserva el último valor; sin mejora demostrada',
       muestras_insuficientes_arranque: 'Faltan muestras completas para el arranque',
+      sin_datos_nuevos: 'No hay datos nuevos para entrenar; se conserva el modelo activo',
       sin_referencia: 'Falta una referencia compatible',
       sin_pares_de_referencia_validos: 'No hay pares de referencia válidos',
       sin_etiquetas_y_politica_especifica_para_anomalias:
         'Faltan etiquetas y criterios de anomalías',
       prueba_final_consumida_se_requiere_periodo_posterior:
-        'Se requiere un nuevo periodo de prueba',
+        'Este periodo ya se evaluó. Espera datos posteriores para volver a entrenar',
     };
     for (const item of items) {
       const tr = document.createElement('tr');
       for (const col of cfg.columnas) {
         const td = document.createElement('td');
-        if (col === 'razones' && Array.isArray(item[col]))
-          td.textContent = item[col].map((r) => razones[r] || r.replaceAll('_', ' ')).join('; ');
+        if (col === 'detalles') {
+          const details = document.createElement('details'), summary = document.createElement('summary'), pre = document.createElement('pre');
+          summary.textContent = 'Ver detalles';
+          pre.textContent = JSON.stringify({ version: item.version, perfil: item.perfil,
+            modo_evaluacion: item.modo_evaluacion, tipo_pronostico: item.tipo_pronostico,
+            muestras_o_pares: item.pares, metricas: item.metricas, creado_en: item.creado_en }, null, 2);
+          details.append(summary, pre);
+          td.append(details);
+        } else if (tab === 'modelos' && col === 'estado')
+          td.textContent = item.activo ? 'En uso' : ({ pendiente: 'Pendiente', apto_demo: 'Apto para demostración', rechazado: 'No aprobado', error: 'Error' }[item.estado] || texto(item.estado));
+        else if (tab === 'modelos' && col === 'algoritmo')
+          td.textContent = ({ isolation_forest: 'Isolation Forest', random_forest: 'Random Forest', persistencia: 'Último valor (respaldo)', linear_regression: 'Regresión lineal' }[item.algoritmo] || item.algoritmo || 'Sin entrenar');
+        else if (tab === 'modelos' && col === 'proposito')
+          td.textContent = ({ anomalias: 'Anomalías', calibracion: 'Calibración', pronostico: 'Pronóstico' }[item.proposito] || texto(item.proposito));
+        else if (tab === 'modelos' && col === 'horizonte_h')
+          td.textContent = item.horizonte_h ? `${item.horizonte_h} h` : '—';
+        else if (col === 'razones' && Array.isArray(item[col]))
+          td.textContent = item[col].length ? item[col].map((r) => razones[r] || r.replaceAll('_', ' ')).join('; ') : 'Sin observaciones';
         else if (col === 'sensor' && item[col])
           td.textContent = `Nodo ${item[col].nodo_id}, sensor ${item[col].sensor_id}`;
         else if (item[col] && typeof item[col] === 'object') {
@@ -175,7 +185,14 @@ async function inicializarPanelMl(root) {
           });
         tr.append(td);
       }
-      $('filas').append(tr);
+      filas.append(tr);
+    }
+    if (!items.length) {
+      const tr = document.createElement('tr'), td = document.createElement('td');
+      td.colSpan = cfg.columnas.length + (tab === 'modelos' ? 1 : 0);
+      td.textContent = tab === 'modelos' ? (filas === $('filas') ? 'Todavía no hay modelos activos.' : 'No hay intentos anteriores.') : 'Sin registros.';
+      tr.append(td);
+      filas.append(tr);
     }
   }
   let desde, hasta;
@@ -198,12 +215,20 @@ async function inicializarPanelMl(root) {
       const d = await api(tab === 'reportes' ? urlReportes() : '/api/admin/ml/' + tab);
       pagina = d.items;
       next = d.siguiente_despues_de || '0';
-      dibujar(pagina);
+      if (tab === 'modelos') {
+        const activos = d.activos || pagina.filter((m) => m.activo);
+        dibujar(activos);
+        const historial = pagina.filter((m) => !m.activo);
+        dibujar(historial, $('historial-filas'));
+        $('historial-resumen').textContent = `Historial de evaluaciones (${historial.length})`;
+        mostrarDatosSensores(d.datos_sensores || []);
+      } else dibujar(pagina);
       $('siguiente').hidden = tab !== 'reportes' || pagina.length < 100;
       $('exportar').disabled = tab !== 'reportes' || !pagina.length;
       $('mensaje').textContent = pagina.length
         ? `${pagina.length} registros mostrados.`
         : 'Sin registros en este periodo.';
+      if (tab === 'modelos') $('mensaje').textContent = `${(d.activos || pagina.filter((m) => m.activo)).length} modelos en uso. Un intento pendiente no reemplaza al modelo activo.`;
       if (tab === 'politicas') editarPolitica(pagina.find((p) => !p.vigente_hasta));
       if (tab === 'modelos') {
         const anteriores = $('ciclos');
@@ -214,8 +239,25 @@ async function inicializarPanelMl(root) {
     } catch (e) {
       pagina = [];
       dibujar([]);
+      if (tab === 'modelos') {
+        dibujar([], $('historial-filas'));
+        $('historial-resumen').textContent = 'Historial de evaluaciones';
+        $('datos-sensores').replaceChildren();
+      }
       $('exportar').disabled = true;
       $('mensaje').textContent = e.message;
+    }
+  }
+  function mostrarDatosSensores(items) {
+    const box = $('datos-sensores');
+    box.replaceChildren();
+    for (const s of items) {
+      const p = document.createElement('p');
+      const ultima = s.ultima_lectura ? new Date(s.ultima_lectura).toLocaleString('es-BO', { timeZone: 'America/La_Paz' }) : 'sin lecturas';
+      p.textContent = `DHT11 · sensor ${s.id}: última lectura válida: ${ultima}. Muestras completas en las últimas 48 horas cerradas: ${s.muestras_completas_48h}. `;
+      if (!s.muestras_completas_48h) p.textContent += 'Revisa que el ESP32 esté encendido, conectado a la red y enviando temperatura y humedad a la API. Después, vuelve a evaluar candidatos.';
+      else p.textContent += 'El entrenamiento comprobará si alcanzan las muestras exigidas por la política.';
+      box.append(p);
     }
   }
   function editarPolitica(p) {
@@ -528,10 +570,11 @@ async function inicializarPanelMl(root) {
   const tr = document.createElement('tr');
   for (const c of [...cfg.columnas, ...(tab === 'modelos' ? ['acciones'] : [])]) {
     const th = document.createElement('th');
-    th.textContent = c.replaceAll('_', ' ');
+    th.textContent = ({ horizonte_h: 'Plazo', razones: 'Motivo / observación', proposito: 'Propósito' }[c] || c.replaceAll('_', ' '));
     tr.append(th);
   }
   $('cabecera').append(tr);
+  if (tab === 'modelos') $('historial-cabecera').append(tr.cloneNode(true));
   $('filtro').hidden = tab !== 'reportes';
   $('exportar').textContent = 'Descargar CSV del periodo';
   $('actualizar').onclick = () => {
