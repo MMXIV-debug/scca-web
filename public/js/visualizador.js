@@ -64,6 +64,19 @@ document.addEventListener('DOMContentLoaded', async () => {
           kpiIca.innerHTML = `<span class="badge bg-secondary p-2">${esc(datos.ica_estado)}</span>`;
         }
         const detalle=document.createElement('small');detalle.className='d-block text-secondary mt-1';detalle.textContent=`PM2.5 · últimas 24 horas completas · ${datos.horas_validas}/24 horas válidas`+(datos.fuente?` · nodo ${datos.fuente.nodo_id}, sensor ${datos.fuente.sensor_id}, ${datos.fuente.origen}`:'')+' · sin calibración física validada';kpiIca.append(detalle);
+        if (datos.ultima_pm25) {
+          const lectura = document.createElement('div');
+          lectura.className = 'fs-6 mt-2';
+          lectura.textContent = `Última concentración PM2.5: ${Number(datos.ultima_pm25.valor).toLocaleString('es-BO')} ${datos.ultima_pm25.unidad}. `
+            + new Date(datos.ultima_pm25.medido_en).toLocaleString('es-BO', { timeZone: 'America/La_Paz' }) + ' (Bolivia).';
+          kpiIca.append(lectura);
+        }
+        if (datos.motivo) {
+          const motivo = document.createElement('small');
+          motivo.className = 'd-block text-secondary mt-1';
+          motivo.textContent = datos.motivo;
+          kpiIca.append(motivo);
+        }
 
       } catch (e) {
         console.error(e);
