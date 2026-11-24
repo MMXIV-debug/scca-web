@@ -165,22 +165,25 @@ public sealed class EvaluacionMlController(
                 || estado.GetProperty("variable").GetString() != solicitud.Variable
                 || estado.GetProperty("horizonte_h").GetInt32() != solicitud.HorizonteH)
                 return Problem(statusCode: 502, title: "Selección de respuesta ML incompatible.");
-            if (estado.GetProperty("estado").GetString() == "sin_modelo")
-                return Ok(estado);
+            var sinModelo = estado.GetProperty("estado").GetString() == "sin_modelo";
             if (solicitud.Proposito == "anomalias") return Ok(estado); // detector instantáneo: no aplicar a una media horaria
-            if (estado.GetProperty("estado").GetString() != "disponible_demo"
-                || estado.GetProperty("entrada_agregado_s").GetInt32() != 3600)
+            if (!sinModelo && (estado.GetProperty("estado").GetString() != "disponible_demo"
+                || estado.GetProperty("entrada_agregado_s").GetInt32() != 3600))
                 return Problem(statusCode: 502, title: "Contrato temporal ML incompatible.");
             int? intervaloConfigurado = configuration.GetValue<int?>($"Ml:IntervalosSensor:{solicitud.SensorId}");
             var arranqueDemo = false;
+            double coberturaSinModelo = .75;
             if (configuration.GetValue<bool>("Ml:PoliticaVersionadaHabilitada"))
             {
-                await using var policyCommand = new NpgsqlCommand("SELECT configuracion FROM public.politica_ml WHERE vigente_hasta IS NULL ORDER BY version DESC LIMIT 1", connection, transaction);
+                await using var policyCommand = new NpgsqlCommand("SELECT to_jsonb(p)::text FROM public.politica_ml p WHERE vigente_hasta IS NULL ORDER BY version DESC LIMIT 1", connection, transaction);
                 var policyJson = await policyCommand.ExecuteScalarAsync(cancellationToken) as string;
                 if (policyJson is null) return Problem(statusCode:503,title:"No hay política vigente.");
                 using var policy = JsonDocument.Parse(policyJson);
-                arranqueDemo = policy.RootElement.TryGetProperty("arranque_demo",out var arranque) && arranque.ValueKind == JsonValueKind.True;
-                if (policy.RootElement.TryGetProperty("intervalos_sensor",out var intervalos)
+                var configuracion = policy.RootElement.GetProperty("configuracion");
+                if (policy.RootElement.TryGetProperty("completitud_min_pct", out var completitud))
+                    coberturaSinModelo = completitud.GetDouble() / 100;
+                arranqueDemo = configuracion.TryGetProperty("arranque_demo",out var arranque) && arranque.ValueKind == JsonValueKind.True;
+                if (configuracion.TryGetProperty("intervalos_sensor",out var intervalos)
                     && intervalos.TryGetProperty(solicitud.SensorId.ToString(),out var frecuencia))
                     intervaloConfigurado=frecuencia.GetInt32();
             }
@@ -188,12 +191,12 @@ public sealed class EvaluacionMlController(
                 return UnprocessableEntity(new { error = "Configura Ml:IntervalosSensor para la frecuencia histórica del simulador." });
             var intervalo = intervaloConfigurado ?? intervaloNodo;
             if (intervalo <= 0 || intervalo > 3600 || 3600 % intervalo != 0
-                || intervalo != estado.GetProperty("intervalo_s").GetInt32())
+                || (!sinModelo && intervalo != estado.GetProperty("intervalo_s").GetInt32()))
                 return UnprocessableEntity(new { error = "Frecuencia del sensor incompatible con el modelo. No se infiere desde los huecos." });
-            var columnas = estado.GetProperty("variables_entrada").EnumerateArray().Select(x => x.GetString()!).ToArray();
+            var columnas = sinModelo ? [solicitud.Variable] : estado.GetProperty("variables_entrada").EnumerateArray().Select(x => x.GetString()!).ToArray();
             if (columnas.Length == 0 || columnas.Distinct().Count() != columnas.Length || columnas.Any(c => !unidades.ContainsKey(c)))
                 return Problem(statusCode: 502, title: "Contrato de variables ML incompatible.");
-            var coberturaMinima = estado.GetProperty("completitud_minima").GetDouble();
+            var coberturaMinima = sinModelo ? coberturaSinModelo : estado.GetProperty("completitud_minima").GetDouble();
             if (!double.IsFinite(coberturaMinima) || coberturaMinima < .75 || coberturaMinima > 1)
                 return Problem(statusCode: 502, title: "Política de cobertura ML incompatible.");
             var valores = new Dictionary<string, double>();
@@ -225,6 +228,17 @@ public sealed class EvaluacionMlController(
             }
             await transaction.CommitAsync(cancellationToken); // transacción de solo lectura
             var incompleta = columnas.Any(c => cobertura[c] < coberturaMinima || !valores.ContainsKey(c));
+            if (sinModelo)
+            {
+                double? original = !incompleta ? valores[solicitud.Variable] : null;
+                return Ok(new { estado = incompleta ? "datos_incompletos" : "sin_modelo",
+                    estado_correccion = "no_corregido", ambito = "demostracion",
+                    sensor_id = solicitud.SensorId, nodo_id = nodoId, perfil,
+                    proposito = solicitud.Proposito, variable = solicitud.Variable, horizonte_h = solicitud.HorizonteH,
+                    valor = original, valor_original = original, unidad = unidades[solicitud.Variable],
+                    modelo_version = (string?)null, periodo_inicio = inicio, periodo_fin = fin, cobertura,
+                    persistido = false, calibracion_fisica_validada = false });
+            }
             var usarFuente = incompleta && arranqueDemo && origen == "simulado" && solicitud.Proposito == "pronostico";
             if (incompleta && !usarFuente)
                 return Ok(new { estado = "datos_incompletos", ambito = "demostracion", sensor_id = solicitud.SensorId,
@@ -262,6 +276,14 @@ public sealed class EvaluacionMlController(
                 || resultado.GetProperty("nodo_id").GetInt32() != nodoId
                 || resultado.GetProperty("estado").GetString() is not ("evaluado_demo" or "fuera_dominio"))
                 return Problem(statusCode: 502, title: "Resultado ML incompatible con la solicitud.");
+            if (solicitud.Proposito == "calibracion")
+            {
+                var detalle = JsonNode.Parse(resultado.GetRawText())!.AsObject();
+                detalle["valor_original"] = valores[solicitud.Variable];
+                detalle["estado_correccion"] = resultado.GetProperty("estado").GetString() == "evaluado_demo"
+                    ? "corregido" : "fuera_dominio";
+                resultado = JsonSerializer.SerializeToElement(detalle);
+            }
             if (solicitud.GuardarResultado)
             {
                 var resultadoId = await ResultadosMlStore.Guardar(database, solicitud.SensorId, nodoId,

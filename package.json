@@ -9,7 +9,8 @@
     "start": "node iniciar.js",
     "start:web": "node server.js",
     "ml:consola": "node ml-consola.js",
-    "prueba:ingesta": "node comprobar-ingesta.js"
+    "prueba:ingesta": "node comprobar-ingesta.js",
+    "prueba:correccion": "node demo-correccion.js"
   },
   "keywords": [],
   "author": "",

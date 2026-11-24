@@ -60,7 +60,7 @@ public sealed class OperacionSwagger : IOperationFilter
         }
         if (path == "api/modelo/evaluar")
         {
-            operation.Description = "Selecciona un sensor activo, una variable de su perfil y una hora completa ya cerrada con zona horaria.";
+            operation.Description = "Selecciona un sensor activo, una variable de su perfil y una hora completa ya cerrada con zona horaria. Calibración devuelve valor_original y estado_correccion. Sin modelo, devuelve el promedio original como no_corregido si hay cobertura suficiente; no guarda una corrección ficticia.";
             json!.Example = JsonNode.Parse("""{"sensorId":1,"proposito":"calibracion","variable":"TEMP","horizonteH":0,"horaInicio":"2026-01-01T12:00:00Z","guardarResultado":false}""");
         }
     }

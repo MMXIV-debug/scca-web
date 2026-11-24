@@ -22,6 +22,24 @@ test('consola ML no inventa un resultado cuando faltan datos', () => {
   assert.match(texto, /no se solicitó guardar/);
   assert.doesNotMatch(texto, /Valor corregido:/);
 });
+
+test('consola ML muestra el original como no corregido cuando falta un modelo', () => {
+  const { resumir } = require('../ml-consola');
+  const texto = resumir({ sensor_id: 1, variable: 'TEMP', proposito: 'calibracion',
+    estado: 'sin_modelo', estado_correccion: 'no_corregido', valor_original: 10, valor: 10, unidad: '°C' });
+  assert.match(texto, /Valor original \(no corregido\): 10 °C/);
+  assert.doesNotMatch(texto, /Valor corregido:/);
+});
+
+test('consola ML distingue el original 10 del resultado corregido 21', () => {
+  const { resumir } = require('../ml-consola');
+  const texto = resumir({ sensor_id: 1, variable: 'TEMP', proposito: 'calibracion',
+    estado: 'evaluado_demo', estado_correccion: 'corregido', valor_original: 10, valor: 21, unidad: '°C',
+    modelo_version: 'fixture', modelo_metadatos: { algoritmo: 'regresion_lineal' } }, {}, '1');
+  assert.match(texto, /Valor de entrada: 10 °C/);
+  assert.match(texto, /Valor corregido: 21 °C/);
+  assert.match(texto, /resultado_id: 1/);
+});
 test('una política no rebaja los mínimos acordados ni mezcla variables de perfiles', () => {
   const p = {
     version_anterior: 1,

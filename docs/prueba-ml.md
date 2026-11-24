@@ -6,6 +6,14 @@ demuestra la precisión predictiva del modelo.
 
 ## Prueba funcional
 
+Para demostrar el caso de aceptación `y=2x+1`, ejecutar
+`npm.cmd run prueba:correccion`. Prepara PostgreSQL, .NET y Python locales y aislados,
+envía originales `10` por la API y comprueba el resultado `21` separado del original,
+la versión y la persistencia. Retira el modelo únicamente de ese registro de prueba
+y verifica que la API devuelva `10` como `no_corregido`. No usa la base compartida.
+La evidencia queda en `tmp/correccion-ml-*/resultado.json`; los servicios temporales
+se detienen al terminar. Es una prueba controlada de integración, no una calibración física.
+
 1. Iniciar el proyecto con `node iniciar.js` y comprobar `/api/estado` en Swagger.
 2. En Machine Learning, revisar el modelo en uso para el sensor, propósito y
    horizonte elegidos. Distinguir un algoritmo aprendido del respaldo por persistencia.

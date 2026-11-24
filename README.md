@@ -178,6 +178,28 @@ El comando no inserta por SQL: el único guardado se realiza a través de la API
 Si ML aparta la muestra, verifica y muestra su almacenamiento en cuarentena.
 La muestra queda registrada como un envío adicional del simulador.
 
+Para demostrar **corrección ML 10 → 21**, ejecutar en otra terminal:
+
+```powershell
+npm.cmd run prueba:correccion
+```
+
+El comando prepara una instancia PostgreSQL local temporal, compila y arranca la
+API .NET y el servicio Python en puertos libres, y envía cuatro muestras completas
+de prueba. Un artefacto real de scikit-learn con la fórmula controlada `y=2x+1`
+transforma el promedio horario original `10` en `21`. El resultado se guarda en
+`ml_demo_resultado` con su versión; `lectura_original` permanece intacta.
+También comprueba reenvíos sin duplicados, repetición sin duplicar resultados,
+ausencia de modelo y falta de datos. Sin modelo se devuelve `10` como
+`no_corregido`; sin datos suficientes no se inventa un valor.
+
+No requiere que `node iniciar.js` esté abierto. Requiere los binarios locales de
+PostgreSQL (en Windows los detecta en Program Files; puede indicarse `PG_BIN`),
+.NET SDK y `.venv` preparado. No usa la conexión de `.env` ni registra estos datos
+en la base compartida. Al terminar apaga sus servicios y deja la evidencia en
+`tmp/correccion-ml-*/resultado.json`. El modelo es un fixture de prueba y no debe
+usarse para corregir mediciones físicas reales.
+
 Para ver ML en una terminal dedicada, mantener `node iniciar.js` abierto y ejecutar
 `npm.cmd run ml:consola` en otra terminal. Muestra los modelos activos al entrar,
 los últimos diez resultados guardados y los nuevos que aparezcan cada 15 segundos.

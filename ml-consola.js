@@ -7,8 +7,9 @@ function fecha(valor) {
 
 function resumir(resultado, entrada = {}, id = null) {
   const m = resultado.modelo_metadatos || {};
-  const valorEntrada = entrada.valores?.[resultado.variable] ?? resultado.entrada_fuente?.valores?.[resultado.variable];
-  const tipo = resultado.proposito === 'calibracion' ? 'Valor corregido' : 'Valor pronosticado';
+  const valorEntrada = resultado.valor_original ?? entrada.valores?.[resultado.variable] ?? resultado.entrada_fuente?.valores?.[resultado.variable];
+  const tipo = resultado.estado_correccion === 'no_corregido' ? 'Valor original (no corregido)'
+    : resultado.proposito === 'calibracion' ? 'Valor corregido' : 'Valor pronosticado';
   const lineas = [
     '\n--- Resultado ML ---',
     `Sensor: ${resultado.sensor_id} | Variable: ${resultado.variable} | Propósito: ${resultado.proposito}`,
