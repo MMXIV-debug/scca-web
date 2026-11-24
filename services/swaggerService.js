@@ -25,9 +25,9 @@ function completarSwagger(documento) {
       ['get', '/visualizador/eventos', 'Suscribirse a eventos de lecturas (SSE)'],
     ]],
     ['Machine Learning', '/api/admin/ml', [
-      ['get', '/politicas', 'Listar políticas ML'],
-      ['post', '/politicas', 'Crear una versión de política ML'],
-      ['put', '/politicas/{id}', 'Actualizar una política ML'],
+      ['get', '/politicas', 'Listar políticas ML con referencias y rangos'],
+      ['post', '/politicas', 'Crear una nueva versión de política ML'],
+      ['put', '/politicas/{id}', 'Crear una nueva versión inmutable a partir de la política ML vigente'],
       ['get', '/sensores', 'Listar sensores compatibles con ML'],
       ['get', '/modelos', 'Consultar modelos, historial y datos recientes'],
       ['get', '/operacion', 'Consultar el estado de entrenamiento y procesamiento'],
@@ -47,6 +47,17 @@ function completarSwagger(documento) {
       ['get', '', 'Listar alertas técnicas'],
       ['post', '/comprobar', 'Comprobar falta de recepción'],
       ['post', '/{id}/atender', 'Registrar la atención de una alerta'],
+    ]],
+    ['Infraestructura', '/api/admin/infraestructura', [
+      ['get', '/resumen', 'Listar sitios, nodos, sensores, mantenimientos y fuentes de referencia'],
+      ['post', '/sitios', 'Dar de alta un sitio de monitoreo'],
+      ['post', '/nodos', 'Dar de alta un nodo de monitoreo'],
+      ['patch', '/nodos/{id}', 'Actualizar estado o intervalo de muestreo de un nodo'],
+      ['post', '/sensores', 'Dar de alta un sensor validando duplicados y unidades'],
+      ['post', '/sensores/{id}/reemplazar', 'Reemplazar un sensor retirando sus modelos anteriores'],
+      ['post', '/mantenimientos', 'Registrar un evento de mantenimiento de nodo o sensor'],
+      ['post', '/referencias', 'Registrar una fuente de referencia calibrada'],
+      ['post', '/referencias/{id}/lecturas', 'Importar lecturas emparejadas de una fuente de referencia'],
     ]],
   ];
   for (const [tag, prefijo, rutas] of grupos) for (const [metodo, ruta, summary] of rutas) {

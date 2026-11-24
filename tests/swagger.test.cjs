@@ -12,6 +12,7 @@ test('Swagger documenta las rutas reales del panel y sus routers con independenc
   const fuentes = [
     ['server.js', ''], ['services/panelMlService.js', '/api/admin/ml'],
     ['services/alertasService.js', '/api/admin/alertas'], ['services/cuarentenaService.js', '/api/admin/cuarentena'],
+    ['services/infraestructuraService.js', '/api/admin/infraestructura'],
   ];
   for (const [archivo, prefijo] of fuentes) {
     const codigo = fs.readFileSync(path.join(root, archivo), 'utf8');

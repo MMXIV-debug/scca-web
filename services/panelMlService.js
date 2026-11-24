@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const { vigente, guardarPolitica } = require('./politicasService');
+const { vigente, listarPoliticas, guardarPolitica } = require('./politicasService');
 let entrenamiento = null;
 const fallo = (status, message) => Object.assign(new Error(message), { status });
 async function ml(ruta, body) {
@@ -90,7 +90,9 @@ function crearRouterPanelMl(pool, auth, soloAdmin) {
   router.get(
     '/politicas',
     responder(async () => ({
-      items: (await pool.query('SELECT * FROM politica_ml WHERE eliminada_en IS NULL ORDER BY version DESC LIMIT 100')).rows,
+      items: await listarPoliticas(pool),
+      referencias: (await pool.query('SELECT id, nombre, sitio_id, calibracion_ref FROM referencia_fuente ORDER BY id')).rows,
+      variables: (await pool.query('SELECT v.id, v.codigo, v.nombre, u.simbolo AS unidad FROM variable v JOIN unidad u ON u.id = v.unidad_id ORDER BY v.id')).rows,
     })),
   );
   router.post(
@@ -102,6 +104,7 @@ function crearRouterPanelMl(pool, auth, soloAdmin) {
     responder((req) => {
       const id = Number(req.params.id);
       if (!Number.isSafeInteger(id) || id < 1) throw fallo(400, 'ID de política inválido.');
+      // Nunca altera una política existente: crea una nueva versión a partir de la vigente.
       return guardarPolitica(pool, req.user.id, req.body, id);
     }),
   );
@@ -121,21 +124,23 @@ function crearRouterPanelMl(pool, auth, soloAdmin) {
       const [registro, datos] = await Promise.all([
         ml('api/v2/modelos/registro'),
         pool.query(`
-          SELECT s.id,
+          SELECT s.id, s.modelo,
             (SELECT max(l.medido_en) FROM lectura_original l
              WHERE l.sensor_id=s.id AND l.calidad='valida') AS ultima_lectura,
             (SELECT count(*)::int FROM (
               SELECT l.id_muestra FROM lectura_original l
               JOIN variable v ON v.id=l.variable_id
               WHERE l.sensor_id=s.id AND l.calidad='valida'
-                AND v.codigo IN ('TEMP','HUM')
+                AND ((upper(trim(s.modelo))='DHT11' AND v.codigo IN ('TEMP','HUM'))
+                  OR (upper(trim(s.modelo))='BME680' AND v.codigo IN ('TEMP','HUM','PRES','GAS')))
                 AND l.medido_en>=date_trunc('hour',now())-interval '48 hours'
                 AND l.medido_en<date_trunc('hour',now())
               GROUP BY l.id_muestra
-              HAVING count(*)=2 AND count(DISTINCT v.codigo)=2
+              HAVING count(*)=CASE WHEN upper(trim(s.modelo))='BME680' THEN 4 ELSE 2 END
+                AND count(DISTINCT v.codigo)=CASE WHEN upper(trim(s.modelo))='BME680' THEN 4 ELSE 2 END
                 AND min(l.medido_en)=max(l.medido_en)
             ) completas) AS muestras_completas_48h
-          FROM sensor s WHERE upper(trim(s.modelo))='DHT11' AND s.origen='real' AND s.activo
+          FROM sensor s WHERE upper(trim(s.modelo)) IN ('DHT11','BME680') AND s.origen='real' AND s.activo
           ORDER BY s.id
         `),
       ]);

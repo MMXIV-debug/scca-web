@@ -18,7 +18,9 @@ public sealed record NuevaPoliticaMl(
     [property: JsonPropertyName("test_pct")] decimal TestPct,
     [property: JsonPropertyName("mejora_rmse_min_pct")] decimal MejoraRmseMinPct,
     [property: JsonPropertyName("sin_datos_seg")] int SinDatosSeg,
-    JsonElement Configuracion);
+    JsonElement Configuracion,
+    [property: JsonPropertyName("referencia_fuente_id")] int? ReferenciaFuenteId = null,
+    [property: JsonPropertyName("rangos_variables")] JsonElement? RangosVariables = null);
 
 public sealed record NuevoModeloMl(
     [Range(1,int.MaxValue)] int SensorId,
@@ -77,7 +79,7 @@ public sealed class CatalogoMlController(NpgsqlDataSource database, IHttpClientF
             using var response = await client.SendAsync(request, ct);
             var body = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
             if (!response.IsSuccessStatusCode) return StatusCode((int)response.StatusCode, body);
-            if (id.HasValue) return Ok(body);
+            // Incluso PUT crea una nueva versión inmutable en lugar de sobrescribir la existente.
             return CreatedAtAction(nameof(Politica), new { id = body.GetProperty("id").GetInt32() }, body);
         }
         catch (Exception e) when (e is HttpRequestException or JsonException or NotSupportedException ||

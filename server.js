@@ -84,6 +84,8 @@ function soloAdmin(req, res, next) {
 
 app.use('/api/admin/cuarentena', require('./services/cuarentenaService').crearRouterCuarentena(pool, auth, soloAdmin));
 
+app.use('/api/admin/infraestructura', require('./services/infraestructuraService').crearRouterInfraestructura(pool, auth, soloAdmin));
+
 app.use('/api/admin/alertas', require('./services/alertasService').crearRouterAlertas(pool, auth, soloAdmin));
 require('./services/alertasService').iniciarMonitorAlertas(pool);
 app.use('/api/admin/ml', require('./services/panelMlService').crearRouterPanelMl(pool, auth, soloAdmin));

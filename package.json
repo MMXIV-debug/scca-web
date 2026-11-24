@@ -10,7 +10,8 @@
     "start:web": "node server.js",
     "ml:consola": "node ml-consola.js",
     "prueba:ingesta": "node comprobar-ingesta.js",
-    "prueba:correccion": "node demo-correccion.js"
+    "prueba:correccion": "node demo-correccion.js",
+    "prueba:aceptacion": "node tests/aceptacion-sprints-1-2.cjs"
   },
   "keywords": [],
   "author": "",

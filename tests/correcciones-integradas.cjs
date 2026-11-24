@@ -61,6 +61,10 @@ async function post(body, status = 201) {
       '08_trazabilidad_muestras.sql',
       '09_politica_operativa.sql',
       '10_detectores_versionados.sql',
+      '11_validacion_ml_historial.sql',
+      '12_crud_catalogo_ml.sql',
+      '13_pronostico_clima.sql',
+      '14_sprint1_sprint2_hardening.sql',
     ])
       await pool.query(fs.readFileSync(path.join(root, 'db', file), 'utf8'));
     for (const file of [
@@ -68,6 +72,10 @@ async function post(body, status = 201) {
       '08_trazabilidad_muestras.sql',
       '09_politica_operativa.sql',
       '10_detectores_versionados.sql',
+      '11_validacion_ml_historial.sql',
+      '12_crud_catalogo_ml.sql',
+      '13_pronostico_clima.sql',
+      '14_sprint1_sprint2_hardening.sql',
     ])
       await pool.query(fs.readFileSync(path.join(root, 'db', file), 'utf8'));
     checks++;
@@ -151,16 +159,21 @@ async function post(body, status = 201) {
     assert.equal(d.evaluacionMl.estado, 'sin_modelo');
     assert.equal(llamadas, 0);
     await post(dht, 409);
-    await post(sensor(2, 2, [l('TEMP', 2, 20)]), 422);
+    const incompleta = await post(sensor(2, 2, [l('TEMP', 2, 20)]), 201);
+    assert.equal(incompleta.estado, 'cuarentena');
+    assert.equal(incompleta.evaluacionMl.estado, 'dato_invalido');
+    await post(sensor(2, 99, [l('TEMP', 1, 20), l('HUM', 3, 50)]), 422);
     await post({ ...dht, idMuestra: 3, medidoEn: '2026-01-01T01:00:00' }, 400);
     await post(
       sensor(3, 1, [l('TEMP', 2, -5), l('HUM', 3, 50), l('PRES', 4, 1010), l('GAS', 5, 1000)]),
     );
     assert.equal(llamadas, 0);
-    await post(
+    const fueraRango = await post(
       sensor(3, 2, [l('TEMP', 2, 20), l('HUM', 3, 101), l('PRES', 4, 1010), l('GAS', 5, 1000)]),
-      422,
+      201,
     );
+    assert.equal(fueraRango.estado, 'cuarentena');
+    assert.equal(fueraRango.evaluacionMl.estado, 'dato_invalido');
     detectorFisico = true;
     assert.equal(
       (
@@ -180,7 +193,7 @@ async function post(body, status = 201) {
       Math.floor(Date.now() / 3600000) * 3600000 - 2 * 3600000 + 300000,
     ).toISOString();
     assert.equal((await post(revisable)).estado, 'cuarentena');
-    const q = (await pool.query('SELECT payload FROM lectura_cuarentena')).rows[0].payload;
+    const q = (await pool.query('SELECT payload FROM lectura_cuarentena WHERE sensor_id = 1')).rows[0].payload;
     assert.equal(q.evaluacionMl.modeloVersion, 'a'.repeat(64));
     mlDisponible = false;
     assert.equal((await post(sim(3))).evaluacionMl.estado, 'ml_no_disponible');
@@ -191,7 +204,7 @@ async function post(body, status = 201) {
     assert.ok(Date.now() - inicioEspera < 8000);
     sinRespuesta = false;
     const revision = require('../services/cuarentenaService').crearCuarentenaService(pool),
-      idsRevision = [(await pool.query('SELECT id::text FROM lectura_cuarentena')).rows[0].id];
+      idsRevision = [(await pool.query('SELECT id::text FROM lectura_cuarentena WHERE sensor_id = 1')).rows[0].id];
     await assert.rejects(
       revision.decidir(1, {
         ids: idsRevision,

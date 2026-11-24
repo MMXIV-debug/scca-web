@@ -14,9 +14,10 @@ async function inicializarPanelMl(root) {
     politicas: {
       titulo: 'Políticas',
       descripcion:
-        'Cada cambio crea una versión y conserva el motivo y el administrador. Los modelos conservan la política con la que fueron evaluados.',
+        'Cada cambio crea una versión inmutable y conserva el motivo, la referencia, los rangos y el administrador. Los modelos conservan la política con la que fueron evaluados.',
       columnas: [
         'version',
+        'referencia_nombre',
         'completitud_min_pct',
         'colocacion_dias',
         'pares_minimos',
@@ -25,6 +26,7 @@ async function inicializarPanelMl(root) {
         'sin_datos_seg',
         'vigente_desde',
         'vigente_hasta',
+        'rangos_variables',
         'configuracion',
       ],
     },
@@ -229,7 +231,7 @@ async function inicializarPanelMl(root) {
         ? `${pagina.length} registros mostrados.`
         : 'Sin registros en este periodo.';
       if (tab === 'modelos') $('mensaje').textContent = `${(d.activos || pagina.filter((m) => m.activo)).length} modelos en uso. Un intento pendiente no reemplaza al modelo activo.`;
-      if (tab === 'politicas') editarPolitica(pagina.find((p) => !p.vigente_hasta));
+      if (tab === 'politicas') editarPolitica(pagina.find((p) => !p.vigente_hasta), d.referencias || [], d.variables || []);
       if (tab === 'modelos') {
         const anteriores = $('ciclos');
         anteriores.textContent = d.ciclos?.length
@@ -254,13 +256,14 @@ async function inicializarPanelMl(root) {
     for (const s of items) {
       const p = document.createElement('p');
       const ultima = s.ultima_lectura ? new Date(s.ultima_lectura).toLocaleString('es-BO', { timeZone: 'America/La_Paz' }) : 'sin lecturas';
-      p.textContent = `DHT11 · sensor ${s.id}: última lectura válida: ${ultima}. Muestras completas en las últimas 48 horas cerradas: ${s.muestras_completas_48h}. `;
+      const modelo = s.modelo || 'DHT11';
+      p.textContent = `${modelo} · sensor ${s.id}: última lectura válida: ${ultima}. Muestras completas en las últimas 48 horas cerradas: ${s.muestras_completas_48h}. `;
       if (!s.muestras_completas_48h) p.textContent += 'Revisa que el ESP32 esté encendido, conectado a la red y enviando temperatura y humedad a la API. Después, vuelve a evaluar candidatos.';
       else p.textContent += 'El entrenamiento comprobará si alcanzan las muestras exigidas por la política.';
       box.append(p);
     }
   }
-  function editarPolitica(p) {
+  function editarPolitica(p, referencias = [], variablesCatalogo = []) {
     acciones.replaceChildren();
     if (!p) {
       acciones.textContent = 'Falta inicializar la política vigente.';
@@ -274,6 +277,14 @@ async function inicializarPanelMl(root) {
     const form = document.createElement('form');
     form.className = 'border rounded p-3 mt-2';
     details.append(form);
+    const refSelect = campo(form, 'Fuente de referencia para calibración', 'select');
+    opciones(
+      refSelect,
+      referencias.length
+        ? referencias.map((r) => [String(r.id), `#${r.id} · ${r.nombre}`])
+        : [[String(p.referencia_fuente_id), `Referencia #${p.referencia_fuente_id}`]],
+    );
+    refSelect.value = String(p.referencia_fuente_id);
     const arranque = campo(form, 'Arranque de demostración con historial corto (anomalías sin etiquetas y pronóstico de respaldo explícito)', 'checkbox');
     arranque.checked = p.configuracion.arranque_demo === true;
     const fields = {};
@@ -396,6 +407,32 @@ async function inicializarPanelMl(root) {
       input.step = 'any';
       aInputs[k] = { input, pct };
     }
+    const rangosTitulo = document.createElement('p');
+    rangosTitulo.className = 'fw-semibold mt-3 mb-1';
+    rangosTitulo.textContent = 'Rangos válidos por variable (las lecturas fuera de rango se retienen en cuarentena)';
+    form.append(rangosTitulo);
+    const rangosPrevios = new Map((p.rangos_variables || []).map((r) => [r.codigo, r]));
+    const rangosInputs = [];
+    const listaVars = variablesCatalogo.length
+      ? variablesCatalogo
+      : (p.rangos_variables || []).map((r) => ({ id: r.variable_id, codigo: r.codigo, nombre: r.nombre, unidad: r.unidad }));
+    for (const v of listaVars) {
+      const actual = rangosPrevios.get(v.codigo);
+      const fs = document.createElement('fieldset');
+      fs.className = 'border rounded p-2 mb-2 d-flex flex-wrap gap-2 align-items-end';
+      const leg = document.createElement('legend');
+      leg.className = 'float-none w-auto px-1 small fw-bold mb-0';
+      leg.textContent = `${v.codigo} (${v.unidad})`;
+      fs.append(leg);
+      const minIn = campo(fs, 'Mínimo', 'number', actual ? actual.rango_min : '');
+      minIn.step = 'any';
+      const maxIn = campo(fs, 'Máximo', 'number', actual ? actual.rango_max : '');
+      maxIn.step = 'any';
+      const umbIn = campo(fs, 'Umbral alerta (opcional)', 'number', actual?.umbral_alerta ?? '');
+      umbIn.step = 'any';
+      form.append(fs);
+      rangosInputs.push({ variable_id: v.id, codigo: v.codigo, minIn, maxIn, umbIn });
+    }
     const motivo = campo(form, 'Motivo del cambio', 'textarea');
     motivo.minLength = 10;
     motivo.maxLength = 1000;
@@ -408,8 +445,19 @@ async function inicializarPanelMl(root) {
       e.preventDefault();
       guardar.disabled = true;
       try {
+        const rangosPayload = rangosInputs
+          .filter((r) => r.minIn.value !== '' && r.maxIn.value !== '')
+          .map((r) => ({
+            variable_id: r.variable_id,
+            codigo: r.codigo,
+            rango_min: Number(r.minIn.value),
+            rango_max: Number(r.maxIn.value),
+            umbral_alerta: r.umbIn.value !== '' ? Number(r.umbIn.value) : null,
+          }));
         await api('/api/admin/ml/politicas', {
           version_anterior: p.version,
+          referencia_fuente_id: Number(refSelect.value),
+          rangos_variables: rangosPayload,
           motivo: motivo.value,
           ...Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, Number(v.value)])),
           configuracion: {

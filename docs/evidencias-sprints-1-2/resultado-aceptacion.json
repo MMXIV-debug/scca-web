@@ -1,0 +1,167 @@
+{
+  "fecha_utc": "2026-11-24T19:54:37.337Z",
+  "entorno": "PostgreSQL 18 local aislado + API .NET + FastAPI ML + Node Express (conectados como app_api)",
+  "pruebas": [
+    {
+      "bloque": "Setup",
+      "nombre": "Migraciones 01..14 (incluida idempotencia de 14)",
+      "ok": true,
+      "detalle": {
+        "migraciones": 14
+      }
+    },
+    {
+      "bloque": "Sprint 1 - Infraestructura",
+      "nombre": "Alta de sitio, nodo, referencia calibrada, DHT11 y BME680",
+      "ok": true,
+      "detalle": {
+        "sitio_id": 1,
+        "nodo_id": 1,
+        "referencia_id": 2,
+        "dht11_id": 1,
+        "bme680_id": 2,
+        "variables_bme680": [
+          "TEMP(°C)",
+          "HUM(%)",
+          "PRES(hPa)",
+          "GAS(ohm)"
+        ]
+      }
+    },
+    {
+      "bloque": "Sprint 1 - Infraestructura",
+      "nombre": "Rechazo de sensores duplicados (409) y unidades incompatibles (422)",
+      "ok": true,
+      "detalle": {
+        "duplicado_codigo": 409,
+        "duplicado_modelo_serie": 409,
+        "unidad_incompatible": 422
+      }
+    },
+    {
+      "bloque": "Sprint 1 - Infraestructura",
+      "nombre": "Registro de mantenimiento y cambio de estado del nodo",
+      "ok": true,
+      "detalle": {
+        "estado_durante_mantenimiento": "mantenimiento",
+        "estado_posterior": "activo"
+      }
+    },
+    {
+      "bloque": "Sprint 1 - Reemplazo",
+      "nombre": "Reemplazo conserva historial y retira modelo ML anterior automáticamente",
+      "ok": true,
+      "detalle": {
+        "sensor_anterior_id": 1,
+        "sensor_anterior_activo": false,
+        "lecturas_historicas_conservadas": 2,
+        "modelo_anterior_estado": "retirado",
+        "sensor_nuevo_id": 5,
+        "reemplaza_a": 1
+      }
+    },
+    {
+      "bloque": "Sprint 1 - Política ML",
+      "nombre": "Referencias, rangos por variable y versionado inmutable (POST, PUT Node, PUT .NET y triggers BD)",
+      "ok": true,
+      "detalle": {
+        "versiones_creadas": [
+          2,
+          3,
+          4
+        ],
+        "v2_pares_intactos": 540,
+        "put_version_historica_http": 409,
+        "trigger_inmutabilidad_bd": "activo"
+      }
+    },
+    {
+      "bloque": "Sprint 1 - Seguridad BD",
+      "nombre": "app_api sin superusuario y bloqueo de UPDATE/DELETE/TRUNCATE en originales y auditoría",
+      "ok": true,
+      "detalle": {
+        "usuario": "app_api",
+        "rolsuper": false,
+        "sqlstate_bloqueos": {
+          "UPDATE lectura_original": "42501",
+          "DELETE lectura_original": "42501",
+          "TRUNCATE lectura_original": "42501",
+          "UPDATE auditoria_evento": "42501",
+          "DELETE auditoria_evento": "42501",
+          "TRUNCATE auditoria_evento": "42501"
+        },
+        "triggers_truncate_superuser": "bloqueados"
+      }
+    },
+    {
+      "bloque": "Sprint 2 - ESP32 y BME680",
+      "nombre": "Firmware .ino verificado + ingesta BME680 (1.440 muestras offline en 96 lotes + reenvío sin duplicados)",
+      "ok": true,
+      "detalle": {
+        "muestras_offline_guardadas": 1440,
+        "reenvio_duplicadas_detectadas": 15,
+        "reenvio_nuevas_guardadas": 5,
+        "muestras_unicas_bd": 1446,
+        "filas_variables_bd": 5784
+      }
+    },
+    {
+      "bloque": "Sprint 2 - Cuarentena",
+      "nombre": "Separación rechazo directo (400/401/409/422) vs cuarentena revisable (dato_invalido)",
+      "ok": true,
+      "detalle": {
+        "rechazos_sin_escritura": [
+          "401_api_key",
+          "400_sin_tz",
+          "400_sensor_baja",
+          "400_var_dup",
+          "422_unidad",
+          "422_var_ajena",
+          "409_dup_cuarentena"
+        ],
+        "cuarentena_guardada": [
+          "Lectura inválida: HUM=105 fuera de rango físico del perfil bme680",
+          "Lectura inválida: TEMP=45 fuera de rango de política [0.0000, 40.0000]",
+          "Lectura inválida: muestra incompleta para el perfil bme680 (faltan: PRES, GAS)",
+          "Lectura inválida: fecha medidoEn en el futuro"
+        ],
+        "restaurar_invalido_rechazado": 422,
+        "descartados_con_auditoria": 4
+      }
+    },
+    {
+      "bloque": "Sprint 2 - Calibración ML",
+      "nombre": "Emparejamiento con referencia calibrada, evaluación posterior (RMSE >= 20%, MAE y |sesgo|) y rechazo sin mejora",
+      "ok": true,
+      "detalle": {
+        "pares_emparejados": 840,
+        "dias_cubiertos": 35,
+        "particion_entrenamiento": {
+          "n": 588,
+          "inicio": "2026-10-20T17:00:00+00:00",
+          "fin": "2026-11-14T04:00:00+00:00"
+        },
+        "particion_prueba_final": {
+          "n": 252,
+          "inicio": "2026-11-14T05:00:00+00:00",
+          "fin": "2026-11-24T16:00:00+00:00"
+        },
+        "algoritmo_seleccionado": "regresion_lineal",
+        "rmse_original": 2.1386,
+        "rmse_calibrado": 0.1341,
+        "mejora_rmse_pct": 93.73,
+        "mae_original": 1.9865,
+        "mae_calibrado": 0.1159,
+        "sesgo_original": 1.9865,
+        "sesgo_calibrado": 0.0044,
+        "estado_aprobado": "apto_demo",
+        "caso_sin_mejora_estado": "rechazado",
+        "caso_sin_mejora_razones": [
+          "mejora_rmse_insuficiente",
+          "mae_empeora",
+          "sesgo_absoluto_empeora"
+        ]
+      }
+    }
+  ]
+}

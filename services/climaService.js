@@ -66,6 +66,10 @@ function normalizarDiario(dias) {
 function crearClimaService(pool, { fetchApi = fetch, ahora = () => Date.now() } = {}) {
   let ejecutando = false;
   async function preparar() {
+    const { rows } = await pool.query(
+      "SELECT to_regclass('public.clima_consulta') IS NOT NULL AND to_regclass('public.clima_dato') IS NOT NULL AS listas",
+    );
+    if (rows[0]?.listas) return;
     await pool.query(fs.readFileSync(path.join(__dirname, '../db/13_pronostico_clima.sql'), 'utf8'));
   }
   async function actualizarSitio(sitio) {

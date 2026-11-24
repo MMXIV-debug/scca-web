@@ -73,6 +73,43 @@ test('una política no rebaja los mínimos acordados ni mezcla variables de perf
       },
     }),
   );
+  const conRangos = validarPolitica({
+    ...p,
+    referencia_fuente_id: 2,
+    rangos_variables: [
+      { codigo: 'TEMP', rango_min: -40, rango_max: 85, umbral_alerta: 40 },
+      { codigo: 'PRES', rango_min: 300, rango_max: 1100, umbral_alerta: null },
+    ],
+  });
+  assert.equal(conRangos.referencia_fuente_id, 2);
+  assert.equal(conRangos.rangos_variables.length, 2);
+  assert.throws(() =>
+    validarPolitica({ ...p, rangos_variables: [{ codigo: 'TEMP', rango_min: 50, rango_max: 10 }] }),
+  );
+  assert.throws(() =>
+    validarPolitica({
+      ...p,
+      rangos_variables: [
+        { codigo: 'TEMP', rango_min: 0, rango_max: 50 },
+        { codigo: 'TEMP', rango_min: 5, rango_max: 40 },
+      ],
+    }),
+  );
+  assert.throws(() =>
+    validarPolitica({
+      ...p,
+      rangos_variables: [{ codigo: 'TEMP', rango_min: 0, rango_max: 50, umbral_alerta: 60 }],
+    }),
+  );
+});
+test('infraestructura identifica perfiles DHT11/BME680 y normaliza unidades', () => {
+  const { identificarPerfil, normUnidad } = require('../services/infraestructuraService');
+  assert.equal(identificarPerfil('BME680', 'real'), 'bme680');
+  assert.equal(identificarPerfil('DHT11', 'real'), 'dht11');
+  assert.equal(identificarPerfil('Python Script', 'simulado'), 'contaminantes_simulados');
+  assert.equal(normUnidad('µg/m³'), 'µg/m3');
+  assert.equal(normUnidad('hPa'), 'hPa');
+  assert.equal(normUnidad('Ω'), 'ohm');
 });
 test('el reporte acota el periodo y exige identidad del sensor', () => {
   assert.equal(filtrosReportes({ sensorId: '1' })[0], 1);

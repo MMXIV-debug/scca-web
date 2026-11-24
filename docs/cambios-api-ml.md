@@ -1,4 +1,20 @@
-# Estado actual para el responsable de API
+Para los sprints 1 y 2, esto es lo que todavía falta según el Excel y lo que revisamos del proyecto.
+
+Del sprint 1 falta completar la gestión de nodos y sensores por el administrador: altas, mantenimiento, referencias y reemplazos, conservando el historial. También falta demostrar que un reemplazo desactiva el modelo anterior y que se rechazan duplicados y unidades incompatibles.
+
+La política ML ya tiene versiones, pero falta completar la configuración de referencias y rangos. Además, existe una ruta que permite editar una política existente; hay que corregirla para que los cambios creen una nueva versión y no alteren la utilizada en evaluaciones anteriores.
+
+La auditoría ya registra operaciones y tiene protecciones, pero la aplicación se conecta a PostgreSQL como superusuario. Falta configurar una cuenta con permisos limitados y comprobar que no pueda modificar, borrar ni vaciar los originales o la auditoría.
+
+Del sprint 2 falta revisar el código del ESP32, el archivo .ino. Hay que completar la captura y el envío configurables, el almacenamiento de 24 horas sin conexión y el reenvío sin duplicados. Si mantienes el criterio del Excel, puede capturar cada minuto y enviar un lote cada 15 minutos: así conserva las 1.440 muestras exigidas durante un día sin red.
+
+También falta integrar y probar físicamente el BME680: registrar sus variables y unidades, recibirlas por la API y comprobar su almacenamiento. Actualmente comprobamos el DHT11 y el simulador.
+
+En la recepción de datos falta cerrar el tratamiento de lecturas inválidas. Algunos casos se rechazan directamente, mientras que el Excel pide conservarlos en cuarentena. Debemos definir cuáles corresponde rechazar y cuáles guardar para revisión, y demostrarlo con pruebas.
+
+La prueba técnica de corrección ML 10 → 21 ya está implementada y comprobada, con el original intacto y el resultado separado. Para corregir mediciones reales todavía faltan datos emparejados con un instrumento de referencia calibrado, entrenamiento y evaluación con un periodo posterior separado. Hay que demostrar la mejora de RMSE de al menos 20 %, sin empeorar MAE ni sesgo absoluto, antes de activar esa corrección.
+
+Finalmente, falta reunir las evidencias de aceptación de esos puntos. La estructura de la base, las consultas, la simulación, el recorrido API → PostgreSQL y la prueba controlada de corrección ya están comprobados; no hace falta rehacerlos.# Estado actual para el responsable de API
 
 Actualización del 19/11/2026: las migraciones `04`–`10` ya fueron aplicadas en la base compartida, las pantallas administrativas viven integradas dentro de `dashboard.html` (Políticas versionadas, Revisión de cuarentena, Machine Learning, Alertas y Reportes ML), el modo de arranque ML y las pruebas integradas están documentados en [CORRECCIONES_2026-11-19.md](CORRECCIONES_2026-11-19.md), [ARRANQUE_ML_2026-11-19.md](ARRANQUE_ML_2026-11-19.md) y [arquitectura-apis-modelo-ml.md](arquitectura-apis-modelo-ml.md).
 

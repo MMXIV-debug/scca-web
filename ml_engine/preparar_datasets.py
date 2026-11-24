@@ -9,7 +9,7 @@ import uuid
 import pandas as pd
 from sqlalchemy import text
 
-from datasets import cargar_sensor, instante_utc, ventanas_horarias, objetivos_temporales
+from datasets import cargar_sensor, instante_utc, ventanas_horarias, objetivos_temporales, unidad_normalizada
 from referencias import descargar_referencia, normalizar_referencia, emparejar_referencia
 
 
@@ -41,13 +41,56 @@ def preparar(args):
                   IN ('normal','episodio_ambiental','fallo_sensor')
                 ORDER BY a.id
             """),{'sensor':str(args.sensor_id)}).mappings().all()
+            ref_fuente_id = getattr(args, 'referencia_fuente_id', None)
+            ref_bd_meta = None
+            ref_bd_filas = []
+            if ref_fuente_id is not None:
+                ref_bd_meta = conexion.execute(
+                    text('SELECT id, nombre, sitio_id, calibracion_ref FROM referencia_fuente WHERE id=:fid'),
+                    {'fid': int(ref_fuente_id)},
+                ).mappings().one_or_none()
+                if not ref_bd_meta:
+                    raise ValueError(f'Fuente de referencia inexistente: {ref_fuente_id}')
+                ref_bd_filas = conexion.execute(text("""
+                    SELECT v.codigo, u.simbolo, rl.medido_en, rl.valor::float AS valor
+                    FROM referencia_lectura rl
+                    JOIN variable v ON v.id = rl.variable_id
+                    JOIN unidad u ON u.id = rl.unidad_id
+                    WHERE rl.fuente_id = :fid AND rl.medido_en >= :desde AND rl.medido_en < :hasta
+                    ORDER BY rl.medido_en
+                """), {'fid': int(ref_fuente_id), 'desde': desde, 'hasta': hasta}).mappings().all()
     # El simulador no siempre comparte la frecuencia de captura configurada para el nodo.
     if meta['origen'] == 'simulado' and args.intervalo_s is None:
         raise ValueError('Para datos simulados especifica --intervalo-s según la frecuencia histórica real.')
     intervalo = args.intervalo_s if args.intervalo_s is not None else meta['intervalo_muestreo_s']
     horas, cobertura = ventanas_horarias(filas, perfil, desde, hasta, intervalo, args.completitud)
     referencia = None
-    if args.referencia_open_meteo:
+    ref_calibrada = None
+    pares = pd.DataFrame(columns=['medido_en', 'variable', 'original', 'referencia'])
+    normalizada = None
+    if ref_bd_meta is not None:
+        filas_ref = []
+        for r in ref_bd_filas:
+            if r['codigo'] not in perfil.unidades:
+                continue
+            if unidad_normalizada(r['simbolo']) != perfil.unidades[r['codigo']]:
+                raise ValueError(f"Unidad incompatible en referencia_lectura para {r['codigo']}: {r['simbolo']}")
+            filas_ref.append({'medido_en': instante_utc(r['medido_en']).floor('h'), 'codigo': r['codigo'], 'valor': float(r['valor'])})
+        if filas_ref:
+            df_ref = pd.DataFrame(filas_ref).groupby(['medido_en', 'codigo'], as_index=False)['valor'].mean()
+            normalizada = df_ref.pivot(index='medido_en', columns='codigo', values='valor').sort_index()
+            normalizada.index = pd.DatetimeIndex(normalizada.index, name='medido_en', tz='UTC')
+            pares = emparejar_referencia(horas, normalizada)
+        else:
+            normalizada = pd.DataFrame(index=pd.DatetimeIndex([], name='medido_en', tz='UTC'))
+        ref_calibrada = {
+            'tipo': 'referencia_calibrada_bd',
+            'fuente_id': int(ref_bd_meta['id']),
+            'nombre': ref_bd_meta['nombre'],
+            'calibracion_ref': ref_bd_meta['calibracion_ref'],
+            'filas_extraidas': len(filas_ref),
+        }
+    elif args.referencia_open_meteo:
         if perfil.nombre != 'contaminantes_simulados':
             raise ValueError('Esta referencia de aire solo cubre contaminantes, no DHT11/BME680.')
         try:
@@ -99,6 +142,11 @@ def preparar(args):
         guardar_json(carpeta / 'referencia_procedencia.json', referencia[1])
         normalizada.to_csv(carpeta / 'referencia_horaria.csv')
         pares.to_csv(carpeta / 'pares_demostracion.csv', index=False)
+    elif ref_calibrada:
+        guardar_json(carpeta / 'referencia_procedencia.json', ref_calibrada)
+        normalizada.to_csv(carpeta / 'referencia_horaria.csv')
+        pares.to_csv(carpeta / 'pares_demostracion.csv', index=False)
+    tiene_ref = bool(referencia or ref_calibrada)
     manifiesto = {
         'version_formato': 1, 'creado_en': datetime.now(timezone.utc).isoformat(),
         'sensor': meta, 'perfil': perfil.nombre, 'unidades': perfil.unidades,
@@ -108,7 +156,8 @@ def preparar(args):
         'filas_extraidas': len(filas), 'horas_completas_multivariantes': int(horas.dropna().shape[0]),
         'etiquetas_humanas_compatibles':len(etiquetas),
         'horas_validas_por_variable': {c: int(horas[c].count()) for c in horas},
-        'referencia_modelada': bool(referencia), 'validacion_independiente': False,
+        'referencia_modelada': bool(referencia), 'referencia_calibrada': ref_calibrada,
+        'validacion_independiente': bool(ref_calibrada and meta['origen'] == 'real'),
         'calibracion_fisica_validada': False,
         'historial_fuente': historial_fuente,
         'procedencia_variables': ({'PM25':'Open-Meteo/CAMS','PM10':'Open-Meteo/CAMS','CO':'Open-Meteo/CAMS','PM1':'estimado: 0.70 × PM25'} if perfil.nombre=='contaminantes_simulados' else {c:'sensor físico' for c in perfil.unidades}),
@@ -117,7 +166,7 @@ def preparar(args):
         'advertencias': ['No constituye un modelo apto ni una validación científica.',
                         'El intervalo debe corresponder al período histórico; no se infiere de huecos.',
                         'Datos simulados y referencia Open-Meteo pueden compartir fuente; no son independientes.'],
-        'pares_por_variable': (pares.groupby('variable').size().to_dict() if referencia else {}),
+        'pares_por_variable': (pares.groupby('variable').size().to_dict() if tiene_ref and not pares.empty else {}),
     }
     manifiesto['sha256'] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                             for p in sorted(carpeta.iterdir()) if p.is_file()}
@@ -133,6 +182,7 @@ def main():
     parser.add_argument('--intervalo-s', type=int)
     parser.add_argument('--completitud', type=float, default=0.75)
     parser.add_argument('--referencia-open-meteo', action='store_true')
+    parser.add_argument('--referencia-fuente-id', type=int)
     parser.add_argument('--salida', default=str(Path(__file__).resolve().parent / 'datasets_generados'))
     args = parser.parse_args()
     try:
