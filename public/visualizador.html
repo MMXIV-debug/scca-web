@@ -45,20 +45,22 @@
         <h1 class="h4 titulo-scca">Resumen del monitoreo</h1>
         <p>Bienvenido, <span id="nombre-usuario"></span>.</p>
         
-        <div class="row g-3">
-          <div class="col-6 col-lg-4"><div class="metric-box"><div class="metric-title">Sitios definidos</div><div class="metric-value" id="kpi-sitios-definidos">0</div></div></div>
-          <div class="col-6 col-lg-4"><div class="metric-box"><div class="metric-title">Nodos ubicados</div><div class="metric-value" id="kpi-nodos-ubicados">0</div></div></div>
-          <div class="col-12 col-lg-4"><div class="metric-box"><div class="metric-title">Calidad del Aire (ICA)</div><div class="metric-value" id="kpi-mediciones-ica">Sin datos</div></div></div>
+        <div class="resumen-metricas">
+          <div class="resumen-contadores">
+            <div class="metric-box"><div class="metric-title">Sitios definidos</div><div class="metric-value" id="kpi-sitios-definidos">0</div></div>
+            <div class="metric-box"><div class="metric-title">Nodos ubicados</div><div class="metric-value" id="kpi-nodos-ubicados">0</div></div>
+          </div>
+          <div class="metric-box"><div class="metric-title">Calidad del Aire (ICA)</div><div class="metric-value" id="kpi-mediciones-ica">Sin datos</div></div>
         </div>
         
         <p class="small text-secondary mt-3">Resumen en tiempo real del monitoreo y estado de los sitios.</p>
 
         <!-- Gráficos (carrusel) + media semanal -->
-        <div class="row g-3 mt-2">
+        <div class="row g-3 mt-2 align-items-start">
 
           <!-- Carrusel de gráficos -->
           <div class="col-12 col-xl-8">
-            <div class="panel-box p-3 h-100">
+            <div class="panel-box p-3">
               <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                 <h2 class="h6 fw-bold mb-0 titulo-scca"><i class="bi bi-graph-up me-1"></i> Tendencia de mediciones</h2>
                 <div class="btn-group btn-group-sm" role="group" aria-label="Rango de tiempo">
@@ -68,12 +70,6 @@
               </div>
 
               <div id="carrusel-graficos" class="carousel slide carousel-dark" data-bs-interval="false">
-                <div class="carousel-indicators position-static mb-2 mt-0">
-                  <button type="button" data-bs-target="#carrusel-graficos" data-bs-slide-to="0" class="active" aria-label="PM"></button>
-                  <button type="button" data-bs-target="#carrusel-graficos" data-bs-slide-to="1" aria-label="Clima"></button>
-                  <button type="button" data-bs-target="#carrusel-graficos" data-bs-slide-to="2" aria-label="Gases"></button>
-                </div>
-
                 <div class="carousel-inner">
                   <div class="carousel-item active">
                     <div class="small fw-bold text-center mb-1">Material particulado (PM1, PM2.5, PM10)</div>
@@ -92,12 +88,20 @@
                   </div>
                 </div>
 
-                <button class="carousel-control-prev" type="button" data-bs-target="#carrusel-graficos" data-bs-slide="prev" aria-label="Anterior">
-                  <span class="carousel-control-prev-icon"></span>
-                </button>
-                <button class="carousel-control-next" type="button" data-bs-target="#carrusel-graficos" data-bs-slide="next" aria-label="Siguiente">
-                  <span class="carousel-control-next-icon"></span>
-                </button>
+                <p class="small text-secondary mt-2 mb-0">Medias por hora de las lecturas recibidas. Los triángulos indican datos parciales; la hora en curso se actualiza al recibir muestras.</p>
+                <div class="grafico-navegacion" role="group" aria-label="Cambiar gráfico">
+                  <button class="btn btn-outline-secondary grafico-nav-boton" type="button" data-bs-target="#carrusel-graficos" data-bs-slide="prev" aria-label="Gráfico anterior">
+                    <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                  </button>
+                  <div class="carousel-indicators position-static m-0">
+                    <button type="button" data-bs-target="#carrusel-graficos" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Material particulado"></button>
+                    <button type="button" data-bs-target="#carrusel-graficos" data-bs-slide-to="1" aria-label="Temperatura y humedad"></button>
+                    <button type="button" data-bs-target="#carrusel-graficos" data-bs-slide-to="2" aria-label="Gases"></button>
+                  </div>
+                  <button class="btn btn-outline-secondary grafico-nav-boton" type="button" data-bs-target="#carrusel-graficos" data-bs-slide="next" aria-label="Gráfico siguiente">
+                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -106,7 +110,7 @@
           <div class="col-12 col-xl-4">
             <div class="panel-box p-3 h-100">
               <h2 class="h6 fw-bold mb-1 titulo-scca"><i class="bi bi-calendar-week me-1"></i> Media semanal</h2>
-              <p class="small text-secondary mb-2">Promedio de los últimos 7 días.</p>
+              <p class="small text-secondary mb-2">Media de las horas con lecturas en los últimos 7 días, incluida la hora en curso. No se rellenan los periodos sin datos.</p>
               <table class="table table-sm align-middle mb-0">
                 <thead><tr><th>Parámetro</th><th class="text-end">Media</th><th class="text-end">Mín – Máx</th></tr></thead>
                 <tbody id="filas-semanal">

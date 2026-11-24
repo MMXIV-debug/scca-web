@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 import joblib
 import logging
@@ -13,6 +14,11 @@ from inferencia_registro import crear_router_registro
 
 app = FastAPI(title="SCCA - ML Inference Service")
 load_dotenv(Path(__file__).resolve().parent.parent / '.env')
+panel_port = os.getenv('PORT', '3000')
+app.add_middleware(CORSMiddleware,
+    allow_origins=[f'http://localhost:{panel_port}', f'http://127.0.0.1:{panel_port}'],
+    allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allow_headers=['Content-Type', 'Authorization', 'X-Api-Key', 'X-ML-Key'])
 app.include_router(crear_router_registro(
     os.getenv('ML_REGISTRO_DIR', str(Path(__file__).resolve().parent / 'registro_modelos_demo')),
     lambda: os.getenv('Iot__ApiKey') or os.getenv('IOT_API_KEY'),lambda:detector,lambda:versiones_legacy.get('detector')))

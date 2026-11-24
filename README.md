@@ -61,6 +61,12 @@ Con el iniciador en ejecución y los puertos predeterminados:
 | Estado de la API y conexión a la nube | [http://localhost:5051/api/estado](http://localhost:5051/api/estado) |
 | Swagger del panel Node.js | [http://localhost:3000/api-docs](http://localhost:3000/api-docs) |
 
+En Swagger del panel, el selector superior permite cambiar entre **Panel web**,
+**Recepción y evaluación (.NET)** y **Modelos ML (Python)**. Iniciar los tres
+servicios con `node iniciar.js` para consultar sus documentos. Usar **Authorize**
+con el token o clave que corresponda a la API seleccionada. La prueba desde esta
+página está habilitada para los orígenes locales `localhost` y `127.0.0.1` del panel.
+
 Para comprobar la conexión desde Swagger:
 
 1. Abrir [Swagger de la API .NET](http://localhost:5051/swagger).
@@ -162,5 +168,26 @@ npm.cmd run start:web
 `npm.cmd` permite ejecutar npm desde PowerShell cuando la política de ejecución bloquea `npm.ps1`. Los puertos se configuran en `.env` mediante `PORT=3000`, `API_PORT=5051` y `ML_PORT=8000`; si se cambian, ajustar las direcciones de acceso correspondientes.
 
 `npm.cmd test` ejecuta los contratos Node.js y las pruebas Python. Estas pruebas son herramientas de desarrollo y no forman parte de los pasos necesarios para abrir el proyecto.
+
+Para demostrar el recorrido **API → PostgreSQL**, mantener `node iniciar.js` abierto
+y ejecutar `npm.cmd run prueba:ingesta` en una segunda terminal. Envía una sola
+muestra del sensor simulado usando Open-Meteo, muestra sus valores y su identificador,
+la respuesta HTTP de la API y las filas consultadas directamente en PostgreSQL.
+Comprueba que sensor, muestra, variables, unidades, fechas y valores coincidan.
+El comando no inserta por SQL: el único guardado se realiza a través de la API.
+Si ML aparta la muestra, verifica y muestra su almacenamiento en cuarentena.
+La muestra queda registrada como un envío adicional del simulador.
+
+Para ver ML en una terminal dedicada, mantener `node iniciar.js` abierto y ejecutar
+`npm.cmd run ml:consola` en otra terminal. Muestra los modelos activos al entrar,
+los últimos diez resultados guardados y los nuevos que aparezcan cada 15 segundos.
+Incluye algoritmo, versión, valor, periodo, fuente y el identificador de PostgreSQL.
+Ctrl+C cierra solo el monitor. Para actualizar la lista de modelos, volver a ejecutar
+el comando. No entrena ni modifica las lecturas originales.
+
+`npm.cmd run ml:consola -- --evaluar` aplica el pronóstico activo de una hora a la
+última hora cerrada y muestra su resultado sin guardarlo. `--sensor 1` filtra el
+sensor y `--una-vez` permite consultar los resultados guardados y salir. Se distinguen
+los pronósticos de la corrección y se identifica el respaldo por persistencia.
 
 Para ampliar los detalles de implementación, consultar [Correcciones e integración del 19/11](docs/CORRECCIONES_2026-11-19.md) y [Arranque ML](docs/ARRANQUE_ML_2026-11-19.md).

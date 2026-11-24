@@ -5,6 +5,10 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddControllers();
+var panelPort = builder.Configuration["PORT"] ?? "3000";
+builder.Services.AddCors(options => options.AddPolicy("SwaggerPanel", policy => policy
+    .WithOrigins($"http://localhost:{panelPort}", $"http://127.0.0.1:{panelPort}")
+    .AllowAnyHeader().AllowAnyMethod()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -102,6 +106,7 @@ if (app.Configuration.GetValue("Swagger:Habilitado", app.Environment.IsDevelopme
     });
 }
 
+app.UseCors("SwaggerPanel");
 app.UseAuthorization();
 
 app.MapControllers();

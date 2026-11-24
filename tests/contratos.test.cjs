@@ -2,6 +2,26 @@ const { test } = require('node:test'),
   assert = require('node:assert/strict');
 const { validarPolitica } = require('../services/politicasService');
 const { filtrosReportes } = require('../services/panelMlService');
+
+test('consola ML distingue un pronóstico por persistencia de una corrección y conserva el cero', () => {
+  const { resumir } = require('../ml-consola');
+  const texto = resumir({ sensor_id: 1, variable: 'PM25', proposito: 'pronostico',
+    estado: 'evaluado_demo', modelo_version: 'version-prueba', valor: 0, unidad: 'µg/m³',
+    modelo_metadatos: { algoritmo: 'persistencia' } }, { valores: { PM25: 0 } }, '632');
+  assert.match(texto, /Valor de entrada: 0/);
+  assert.match(texto, /Valor pronosticado: 0/);
+  assert.match(texto, /no demuestra mejora predictiva/);
+  assert.match(texto, /resultado_id: 632/);
+  assert.doesNotMatch(texto, /Valor corregido/);
+});
+
+test('consola ML no inventa un resultado cuando faltan datos', () => {
+  const { resumir } = require('../ml-consola');
+  const texto = resumir({ sensor_id: 2, variable: 'TEMP', proposito: 'calibracion', estado: 'sin_modelo', valor: null });
+  assert.match(texto, /Sin resultado numérico/);
+  assert.match(texto, /no se solicitó guardar/);
+  assert.doesNotMatch(texto, /Valor corregido:/);
+});
 test('una política no rebaja los mínimos acordados ni mezcla variables de perfiles', () => {
   const p = {
     version_anterior: 1,

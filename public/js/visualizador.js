@@ -212,7 +212,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // porVariable['PM25']['2026-11-13T00:00:00.000Z'] = valor
       const porVariable = {};
-      filas.forEach(f => { (porVariable[f.sensor_id+'/'+f.codigo] ??= {})[f.hora] = f.valor; });
+      filas.forEach(f => { (porVariable[f.sensor_id+'/'+f.codigo] ??= {})[f.hora] = f; });
       const { texto, grilla } = paletaGrafico();
 
       CONFIG_GRAFICOS.forEach(cfg => {
@@ -220,13 +220,15 @@ document.addEventListener('DOMContentLoaded', async () => {
           const c = colorSerie(s);
           return {
             label: `${s.etiqueta} · nodo ${f.nodo_id}, sensor ${f.sensor_id}, ${f.origen}`,
-            data: horas.map(h => porVariable[f.sensor_id+'/'+s.codigo]?.[h] ?? null),
+            data: horas.map(h => porVariable[f.sensor_id+'/'+s.codigo]?.[h]?.valor ?? null),
+            metadatosHoras: horas.map(h => porVariable[f.sensor_id+'/'+s.codigo]?.[h]),
             borderColor: c,
             backgroundColor: c,
             yAxisID: s.eje || 'y',
             tension: 0.35,        // línea suavizada tipo AccuWeather
             borderWidth: 2,
-            pointRadius: 0,
+            pointRadius: 3,
+            pointStyle: contexto => contexto.dataset.metadatosHoras[contexto.dataIndex]?.parcial ? 'triangle' : 'circle',
             pointHoverRadius: 5,
             spanGaps: false       // no presentar huecos como mediciones continuas
           };
@@ -247,7 +249,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             responsive: true,
             maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },  // tooltip con todos los valores a esa hora
-            plugins: { legend: { position: 'bottom', labels: { color: texto } } },
+            plugins: {
+              legend: { position: 'bottom', labels: { color: texto } },
+              tooltip: { callbacks: { afterLabel: contexto => {
+                const hora = contexto.dataset.metadatosHoras[contexto.dataIndex];
+                if (!hora) return '';
+                return `${hora.parcial ? 'Parcial' : 'Cobertura suficiente'} · ${Math.round(hora.cobertura * 100)} % de cobertura`
+                  + (hora.hora_cerrada === false ? ' · hora en curso' : '');
+              } } },
+            },
             scales: {
               x: { ticks: { maxTicksLimit: 8, maxRotation: 0, color: texto }, grid: { display: false } },
               y: { position: 'left', ticks: { color: texto }, grid: { color: grilla } },
@@ -284,7 +294,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const fuentes=datos.filter(d=>d.codigo===f.codigo);
         if (!fuentes.length) return [`<tr><td class="fw-bold">${f.nombre}</td><td class="text-end text-muted" colspan="2">${f.codigo === 'VOC' ? 'Próximamente' : 'Sin cobertura suficiente'}</td></tr>`];
         return fuentes.map(d=>`<tr>
-          <td class="fw-bold">${f.nombre}<small class="d-block text-secondary">Sensor ${d.sensor_id} · ${esc(d.origen)} · ${d.horas_validas} h válidas</small></td>
+          <td class="fw-bold">${f.nombre}<small class="d-block text-secondary">Sensor ${d.sensor_id} · ${esc(d.origen)} · ${d.horas_con_datos ?? d.horas_validas} h con lecturas · ${d.horas_validas} h con cobertura suficiente${d.incluye_parciales ? ' · incluye datos parciales' : ''}</small></td>
           <td class="text-end">${d.promedio} <small class="text-secondary">${f.unidad}</small></td>
           <td class="text-end small text-secondary">${d.minimo.toFixed(1)} – ${d.maximo.toFixed(1)}</td>
         </tr>`);

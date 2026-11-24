@@ -5,9 +5,11 @@
   "main": "server.js",
   "scripts": {
     "test": "node tests/pruebas.cjs",
-    "test:contratos": "node --test tests/contratos.test.cjs tests/clima.test.cjs tests/database.test.cjs tests/strategy-observer.test.cjs tests/series.test.cjs",
+    "test:contratos": "node --test tests/contratos.test.cjs tests/clima.test.cjs tests/database.test.cjs tests/strategy-observer.test.cjs tests/series.test.cjs tests/swagger.test.cjs",
     "start": "node iniciar.js",
-    "start:web": "node server.js"
+    "start:web": "node server.js",
+    "ml:consola": "node ml-consola.js",
+    "prueba:ingesta": "node comprobar-ingesta.js"
   },
   "keywords": [],
   "author": "",

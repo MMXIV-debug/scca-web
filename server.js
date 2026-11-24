@@ -4,7 +4,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 // Dependencias de Swagger
-const swaggerUi = require('swagger-ui-express');
 const swaggerJsDoc = require('swagger-jsdoc');
 
 const app = express();
@@ -45,11 +44,11 @@ const swaggerOptions = {
       }
     }
   },
-  apis: ['./server.js'], // Apunta a este mismo archivo para leer los comentarios
+  apis: [require('node:path').join(__dirname, 'server.js')],
 };
 
 const swaggerDocs = swaggerJsDoc(swaggerOptions);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+require('./services/swaggerService').registrarSwagger(app, swaggerDocs);
 // ----------------------------------------------
 
 // ---------- Middlewares ----------
@@ -362,7 +361,7 @@ app.get('/api/visualizador/resumen', auth, async (req, res) => {
 // Promedio por hora de cada variable en las ultimas N horas 
 app.get('/api/visualizador/series', auth, async (req, res) => {
   const horas = Math.min(Math.max(parseInt(req.query.horas) || 24, 1), 168);
-  try{return res.json(await require('./services/seriesService').horas(pool,horas,req.query));}
+  try{return res.json(await require('./services/seriesService').seriesVisualizador(pool,horas,req.query));}
   catch(e){return res.status(e.status||503).json({error:e.status?e.message:'No se pudo consultar la serie horaria.'});}
 });
 

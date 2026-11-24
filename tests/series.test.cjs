@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { resumen } = require('../services/seriesService');
+const { resumen, horas, seriesVisualizador, semanal } = require('../services/seriesService');
 
 function base(horasValidas, ultima = { medido_en: new Date(), valor: 0, unidad: 'µg/m³' }) {
   return {
@@ -50,4 +50,45 @@ test('ICA: sin lecturas no devuelve una concentración ficticia', async () => {
   assert.equal(r.ultima_pm25, null);
   assert.equal(r.ica_score, '-');
   assert.match(r.motivo, /0 de 18/);
+});
+
+function datosDht() {
+  return { async query(sql, params) {
+    if (sql.includes('FROM politica_ml')) return { rows: [{ completitud_min_pct: 75, configuracion: {} }] };
+    assert.match(sql, /valor_observado/);
+    const filas = [
+      { sensor_id: 2, codigo: 'TEMP', hora_cerrada: true, valor: null, valor_observado: 40, cobertura: .5 },
+      { sensor_id: 2, codigo: 'TEMP', hora_cerrada: true, valor: 20, valor_observado: 20, cobertura: .8 },
+      { sensor_id: 2, codigo: 'TEMP', hora_cerrada: true, valor: null, valor_observado: null, cobertura: 0 },
+      { sensor_id: 2, codigo: 'HUM', hora_cerrada: true, valor: null, valor_observado: 0, cobertura: .5 },
+    ];
+    if (params[5]) filas.push({ sensor_id: 2, codigo: 'TEMP', hora_cerrada: false, valor: null, valor_observado: 30, cobertura: .1 });
+    return { rows: filas };
+  } };
+}
+
+test('series: muestra temperatura parcial y humedad cero, conserva huecos e incluye la hora actual', async () => {
+  const filas = await seriesVisualizador(datosDht(), 24);
+  assert.equal(filas[0].valor, 40);
+  assert.equal(filas[0].parcial, true);
+  assert.equal(filas[1].parcial, false);
+  assert.equal(filas[2].valor, null);
+  assert.equal(filas[3].valor, 0);
+  assert.equal(filas.at(-1).hora_cerrada, false);
+});
+
+test('series: la consulta validada conserva el filtro de cobertura y excluye la hora actual', async () => {
+  const filas = await horas(datosDht(), 24);
+  assert.equal(filas.length, 4);
+  assert.equal(filas[0].valor, null);
+});
+
+test('media semanal: incluye las horas observadas e identifica las parciales sin mezclar variables', async () => {
+  const filas = await semanal(datosDht());
+  const temperatura = filas.find(r => r.codigo === 'TEMP');
+  assert.equal(temperatura.promedio, 30);
+  assert.equal(temperatura.horas_con_datos, 3);
+  assert.equal(temperatura.horas_validas, 1);
+  assert.equal(temperatura.incluye_parciales, true);
+  assert.equal(filas.find(r => r.codigo === 'HUM').promedio, 0);
 });
