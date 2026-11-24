@@ -105,7 +105,8 @@ Esta sección amplía el funcionamiento del sistema. Para ejecutar la entrega, s
 | `backend/Scca.Api/` | API ASP.NET Core, recepción de muestras IoT y operaciones de integración con ML. |
 | `services/usuarioService.js` y `services/validadorEstados.js` | Operaciones de usuarios, auditoría y transiciones permitidas. |
 | `services/alertasService.js` y `services/alertasAmbientalesService.js` | Cálculo de alertas persistidas que los paneles consultan por HTTP. |
-| `services/correctorStrategy.js` y `services/eventosLectura.js` | Utilidades legadas; la inferencia versionada y las alertas actuales utilizan los servicios específicos. |
+| `services/correctorStrategy.js` | Strategy: selección del algoritmo activo en las evaluaciones ML del panel y del procesamiento automático. |
+| `services/eventosLectura.js` | Observer: recibe avisos de lecturas confirmadas, ejecuta las alertas habilitadas y notifica a los paneles. |
 | `public/` | Páginas, estilos y JavaScript del navegador. |
 | `python/simulador.py` | Obtención y envío de lecturas de origen simulado. |
 | `ml_engine/` | Preparación de datasets, entrenamiento evaluado, registro de modelos e inferencia con Python/FastAPI. |
@@ -121,6 +122,8 @@ El simulador consulta Open-Meteo y estima PM1 como el 70 % de PM2.5. Envía las 
 El ESP32 debe estar encendido y configurado con la red, la dirección de la API y los identificadores de la instalación. `IOT_API_KEY` debe coincidir con `API_KEY` del dispositivo. Si cambia `API_PORT`, también debe actualizarse la dirección de destino del ESP32.
 
 Los paneles de administrador y visualizador actualizan las mediciones cada 15 segundos mientras están visibles.
+
+También reciben avisos mediante una suscripción HTTP autenticada cuando la API .NET confirma una muestra. PostgreSQL entrega el aviso después del commit y Node ejecuta los observadores de alertas habilitados y de actualización de los paneles. El refresco periódico se conserva como respaldo ante desconexiones. Consultar [Strategy](docs/patron-strategy.md) y [Observer](docs/patron-observer.md) para ver los flujos, archivos y pruebas de ambos patrones.
 
 ### Clima y pronóstico del visualizador
 

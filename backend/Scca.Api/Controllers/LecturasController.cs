@@ -230,6 +230,16 @@ public sealed class LecturasController(
                     idsGuardados.Add((long)(await command.ExecuteScalarAsync(cancellationToken))!);
                 }
             }
+            // NOTIFY se entrega únicamente después de confirmar el guardado.
+            await using (var aviso = new NpgsqlCommand("SELECT pg_notify('scca_lecturas', @evento)", connection, transaction))
+            {
+                aviso.Parameters.AddWithValue("evento", JsonSerializer.Serialize(new {
+                    sensor_id = muestra.SensorId,
+                    id_muestra = muestra.IdMuestra.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    estado = esAnomalia == true ? "cuarentena" : "guardada"
+                }));
+                await aviso.ExecuteNonQueryAsync(cancellationToken);
+            }
             await transaction.CommitAsync(cancellationToken);
             return StatusCode(201, new { muestra.SensorId, muestra.IdMuestra, estado = esAnomalia == true ? "cuarentena" : "guardada", esAnomalia, evaluacionMl, ids = idsGuardados });
         }

@@ -36,16 +36,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
       await cargarTodo();
       configurarNavegacion();
-      let actualizando = false;
-      setInterval(async () => {
-        if (actualizando || document.hidden) return;
+      let actualizando = false, refrescoPendiente = false;
+      async function actualizarMonitoreo() {
+        if (document.hidden) return;
+        refrescoPendiente = true;
+        if (actualizando) return;
         actualizando = true;
         try {
-          await Promise.all([cargarMetricasMonitoreo(), cargarSitios(), cargarParametros()]);
+          do {
+            refrescoPendiente = false;
+            await Promise.all([cargarMetricasMonitoreo(), cargarSitios(), cargarParametros()]);
+          } while (refrescoPendiente && !document.hidden);
         } finally {
           actualizando = false;
         }
-      }, 15000);
+      }
+      setInterval(actualizarMonitoreo, 15000);
+      window.observarLecturas(token, actualizarMonitoreo);
     } catch (err) {
       console.error(err);
       salir();

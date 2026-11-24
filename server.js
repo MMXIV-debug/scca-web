@@ -91,6 +91,9 @@ app.use('/api/admin/ml', require('./services/panelMlService').crearRouterPanelMl
 require('./services/procesamientoMlService').iniciarProcesamiento(pool);
 require('./services/alertasAmbientalesService').iniciarAmbientales(pool);
 require('./services/entrenamientoScheduler').iniciarEntrenamientoAutomatico();
+const eventosLectura = require('./services/eventosLectura');
+eventosLectura.iniciarObservadores(pool);
+app.get('/api/visualizador/eventos', auth, (req, res) => eventosLectura.suscribirPanel(req, res));
 app.get('/api/visualizador/alertas',auth,async(req,res)=>{try{res.json({items:(await pool.query("SELECT id::text,tipo,nodo_id,regla,valor,calidad,periodo_ini,estado,observacion,evidencia FROM alerta WHERE estado IN ('abierta','atendida') ORDER BY generada_en DESC LIMIT 100")).rows});}catch{res.status(503).json({error:'Alertas no disponibles.'});}});
 function calcularAQI_EPA(pm25) {
   // EPA 2024, PM2.5 24 h: https://www.epa.gov/system/files/documents/2024-02/pm-naaqs-air-quality-index-fact-sheet.pdf

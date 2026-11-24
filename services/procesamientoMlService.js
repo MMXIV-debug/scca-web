@@ -25,7 +25,7 @@ async function procesar(pool) {
         horizonteH: m.horizonte_h,
         horaInicio: inicio.toISOString(),
         guardarResultado: true,
-      });
+      }, m);
       resultado.resultados.push({
         sensor_id: m.sensor.sensor_id,
         proposito: m.proposito,

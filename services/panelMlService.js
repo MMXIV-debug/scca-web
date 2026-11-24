@@ -21,7 +21,7 @@ async function ml(ruta, body) {
   if (!r.ok) throw fallo(r.status === 409 ? 409 : 503, d.detail || 'Servicio ML no disponible.');
   return d;
 }
-async function evaluar(body) {
+async function ejecutarEvaluacion(body) {
   const r = await fetch(`http://127.0.0.1:${process.env.API_PORT || 5051}/api/modelo/evaluar`, {
     method: 'POST',
     headers: {
@@ -34,6 +34,16 @@ async function evaluar(body) {
   const d = await r.json();
   if (!r.ok) throw fallo(r.status, d.error || d.title || 'No se pudo evaluar.');
   return d;
+}
+async function evaluar(body, modeloActivo) {
+  if (modeloActivo === undefined) {
+    const registro = await ml('api/v2/modelos/registro');
+    const activos = registro.activos || registro.items.filter(m => m.activo);
+    modeloActivo = activos.find(m => m.sensor.sensor_id === Number(body.sensorId)
+      && m.proposito === body.proposito && m.variable === body.variable
+      && m.horizonte_h === Number(body.horizonteH || 0)) || null;
+  }
+  return require('./correctorStrategy').evaluar(body, modeloActivo, ejecutarEvaluacion);
 }
 function filtrosReportes(q) {
   const sensor = Number(q.sensorId),

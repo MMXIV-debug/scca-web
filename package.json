@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "test": "node tests/pruebas.cjs",
-    "test:contratos": "node --test tests/contratos.test.cjs tests/clima.test.cjs tests/database.test.cjs",
+    "test:contratos": "node --test tests/contratos.test.cjs tests/clima.test.cjs tests/database.test.cjs tests/strategy-observer.test.cjs",
     "start": "node iniciar.js",
     "start:web": "node server.js"
   },

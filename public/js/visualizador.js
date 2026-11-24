@@ -404,17 +404,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     cargarSemanal();
     cargarAlertas();
     cargarClima();
-    let actualizando = false;
+    let actualizando = false, refrescoPendiente = false;
 
-    setInterval(async () => {
-      if (actualizando || document.hidden) return;
+    async function actualizarPanel() {
+      if (document.hidden) return;
+      refrescoPendiente = true;
+      if (actualizando) return;
       actualizando = true;
       try {
-        await Promise.all([cargarResumen(), cargarSitios(), cargarParametros(), cargarGraficos(), cargarSemanal(), cargarAlertas(), cargarClima()]);
+        do {
+          refrescoPendiente = false;
+          await Promise.all([cargarResumen(), cargarSitios(), cargarParametros(), cargarGraficos(), cargarSemanal(), cargarAlertas(), cargarClima()]);
+        } while (refrescoPendiente && !document.hidden);
       } finally {
         actualizando = false;
       }
-    }, 15000);
+    }
+    setInterval(actualizarPanel, 15000);
+    window.observarLecturas(token, actualizarPanel);
 
   } catch (err) {
     console.error(err);
