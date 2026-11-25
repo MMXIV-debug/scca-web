@@ -19,7 +19,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const destino = document.getElementById(hash.slice(1));
       if (!destino || !contenido.contains(destino)) return;
       enlaces.forEach(enlace => {
-        const activo = enlace.getAttribute('href') === hash;
+        const destinoEnlace = enlace.getAttribute('href');
+        const activo = destinoEnlace === hash || (destinoEnlace === '#seccion-resumen' && ['#seccion-sitios', '#seccion-parametros'].includes(hash));
         enlace.classList.toggle('active', activo);
         if (activo) enlace.setAttribute('aria-current', 'location');
         else enlace.removeAttribute('aria-current');

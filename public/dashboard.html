@@ -36,14 +36,15 @@
     <!-- Sidebar Izquierda -->
     <aside class="sidebar-scca p-3">
       <nav class="nav flex-column" aria-label="Navegación principal">
-        <a class="sidebar-link active" href="#seccion-resumen" aria-current="location"><i class="bi bi-grid-1x2 me-2"></i>Resumen</a>
-        <a class="sidebar-link" href="#seccion-usuarios"><i class="bi bi-people me-2"></i>Usuarios y roles</a>
-        <a class="sidebar-link" href="#seccion-inactivos"><i class="bi bi-person-x me-2"></i>Inactivos</a>
+        <a class="sidebar-link active" href="#seccion-resumen" aria-current="location"><i class="bi bi-grid-1x2 me-2"></i>Consultar monitoreo ambiental</a>
+        <a class="sidebar-link" href="#seccion-usuarios"><i class="bi bi-people me-2"></i>Usuarios y Roles</a>
+        <div class="sidebar-subnav" aria-label="Subsecciones de Usuarios y Roles">
+        <a class="sidebar-link sidebar-sublink" href="#seccion-inactivos"><i class="bi bi-person-x me-2"></i>Inactivos</a>
+        </div>
         <a class="sidebar-link" href="#seccion-sitios"><i class="bi bi-geo-alt me-2"></i>Sitios y fuentes</a>
-        <a class="sidebar-link" href="#seccion-politicas"><i class="bi bi-shield-check me-2"></i>Políticas</a>
-        <a class="sidebar-link" href="#seccion-cuarentena"><i class="bi bi-clipboard-check me-2"></i>Revisión de cuarentena</a>
+        <a class="sidebar-link" href="#seccion-politicas-cuarentena"><i class="bi bi-shield-check me-2"></i>Políticas y cuarentena</a>
         <a class="sidebar-link" href="#seccion-modelos"><i class="bi bi-cpu me-2"></i>Machine Learning</a>
-        <a class="sidebar-link" href="#seccion-alertas"><i class="bi bi-bell me-2"></i>Alertas</a>
+        <a class="sidebar-link" href="#seccion-alertas"><i class="bi bi-bell me-2"></i>Seguimiento de Alertas</a>
         <a class="sidebar-link" href="#seccion-reportes"><i class="bi bi-file-earmark-bar-graph me-2"></i>Reportes ML</a>
       </nav>
 
@@ -243,6 +244,7 @@
       </section>
 
 
+      <div id="seccion-politicas-cuarentena" tabindex="-1" role="group" aria-label="Políticas y cuarentena">
       <section id="seccion-politicas" data-panel-ml="politicas" class="panel-box p-3 p-md-4 mb-4 modulo-admin" tabindex="-1" aria-labelledby="seccion-politicas-titulo">
         <h3 id="seccion-politicas-titulo" class="h5 fw-bold mb-2 titulo-scca"></h3>
         <p id="seccion-politicas-descripcion" class="text-secondary small"></p>
@@ -279,6 +281,8 @@
 <p class="small mt-2">La decisión es definitiva. El lote se aplica completo o no se aplica ninguna decisión.</p>
 </form></section>
       </section>
+
+      </div>
 
       <section id="seccion-modelos" data-panel-ml="modelos" class="panel-box p-3 p-md-4 mb-4 modulo-admin" tabindex="-1" aria-labelledby="seccion-modelos-titulo">
         <h3 id="seccion-modelos-titulo" class="h5 fw-bold mb-2 titulo-scca"></h3>

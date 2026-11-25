@@ -371,7 +371,8 @@ window.cargarTodo = async function() {
       const destino = document.getElementById(hash.slice(1));
       if (!destino || !contenido.contains(destino)) return;
       enlaces.forEach(enlace => {
-        const activo = enlace.getAttribute('href') === hash;
+        const destinoEnlace = enlace.getAttribute('href');
+        const activo = destinoEnlace === hash || (destinoEnlace === '#seccion-usuarios' && hash === '#seccion-inactivos') || (destinoEnlace === '#seccion-politicas-cuarentena' && ['#seccion-politicas', '#seccion-cuarentena'].includes(hash));
         enlace.classList.toggle('active', activo);
         if (activo) enlace.setAttribute('aria-current', 'location');
         else enlace.removeAttribute('aria-current');

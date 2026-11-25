@@ -615,3 +615,7 @@ body.dashboard-body {
 [data-bs-theme="dark"] #carrusel-graficos .carousel-control-prev-icon,
 [data-bs-theme="dark"] #carrusel-graficos .carousel-control-next-icon { filter: none; }
 [data-bs-theme="dark"] #carrusel-graficos .carousel-indicators [data-bs-target] { background-color: #e4ede7; }
+
+/* Subsecciones de la navegación: conservan los paneles y sus anclas. */
+.sidebar-subnav { margin-left: 1.25rem; padding-left: .5rem; border-left: 1px solid currentColor; }
+.sidebar-subnav .sidebar-sublink { font-size: .92em; padding-top: .6rem; padding-bottom: .6rem; }
