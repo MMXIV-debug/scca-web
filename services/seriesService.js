@@ -17,17 +17,20 @@ async function horas(pool, cantidad, q = {}, incluirHoraActual = false) {
     f = filtros(q);
   const { rows } = await pool.query(
     `
- WITH fuentes AS (SELECT s.id AS sensor_id,s.nodo_id,n.sitio_id,s.origen,s.modelo,n.estado AS estado_nodo,v.id AS variable_id,v.codigo,u.simbolo AS unidad,
+ WITH fuentes AS (SELECT s.id AS sensor_id,s.nodo_id,n.sitio_id,s.origen,s.modelo,n.estado AS estado_nodo,v.id AS variable_id,serie.codigo,serie.unidad,
  (reciente.estado='evaluado_demo' AND reciente.es_anomalia=false AND reciente.modelo_version IS NOT NULL
  AND reciente.nodo_id=s.nodo_id AND reciente.perfil=lower(trim(s.modelo))) AS ultima_ml_utilizable,
  CASE WHEN $1::jsonb ? s.id::text THEN ($1::jsonb->>s.id::text)::int WHEN s.origen='real' THEN n.intervalo_muestreo_s ELSE NULL END AS intervalo
  FROM sensor s JOIN nodo n ON n.id=s.nodo_id JOIN sensor_variable sv ON sv.sensor_id=s.id JOIN variable v ON v.id=sv.variable_id JOIN unidad u ON u.id=v.unidad_id
+ CROSS JOIN LATERAL (SELECT v.codigo,u.simbolo AS unidad UNION ALL
+ SELECT 'ALT','m' WHERE upper(trim(s.modelo))='BME680' AND s.origen='real' AND v.codigo='PRES') serie
  LEFT JOIN LATERAL (SELECT e.estado,e.es_anomalia,e.modelo_version,e.nodo_id,e.perfil
  FROM evaluacion_muestra e WHERE e.sensor_id=s.id ORDER BY e.medido_en DESC,e.id_muestra DESC LIMIT 1) reciente ON true
  WHERE s.activo AND ($4::int IS NULL OR s.id=$4) AND ($5::int IS NULL OR n.id=$5)),
- slots AS (SELECT f.sensor_id,f.codigo,date_bin(make_interval(secs=>f.intervalo),l.medido_en,TIMESTAMPTZ '1970-01-01 00:00:00+00') AS slot,AVG(l.valor) AS valor,MAX(l.medido_en) AS ultima_fecha
+ slots AS (SELECT f.sensor_id,f.codigo,date_bin(make_interval(secs=>f.intervalo),l.medido_en,TIMESTAMPTZ '1970-01-01 00:00:00+00') AS slot,AVG(CASE WHEN f.codigo='ALT' THEN (alt.evidencia->>'altitudAproximadaM')::numeric ELSE l.valor END) AS valor,MAX(l.medido_en) AS ultima_fecha
  FROM fuentes f JOIN lectura_original l ON l.sensor_id=f.sensor_id AND l.variable_id=f.variable_id
- WHERE f.intervalo BETWEEN 1 AND 3600 AND 3600%f.intervalo=0 AND l.calidad='valida' AND l.medido_en>=(date_trunc('hour',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')-make_interval(hours=>$2) AND l.medido_en<(date_trunc('hour',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')+CASE WHEN $6::boolean THEN interval '1 hour' ELSE interval '0 hours' END AND l.medido_en<=now()
+ LEFT JOIN evaluacion_muestra alt ON f.codigo='ALT' AND alt.sensor_id=l.sensor_id AND alt.id_muestra=l.id_muestra
+ WHERE (f.codigo<>'ALT' OR jsonb_typeof(alt.evidencia->'altitudAproximadaM')='number') AND f.intervalo BETWEEN 1 AND 3600 AND 3600%f.intervalo=0 AND l.calidad='valida' AND l.medido_en>=(date_trunc('hour',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')-make_interval(hours=>$2) AND l.medido_en<(date_trunc('hour',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')+CASE WHEN $6::boolean THEN interval '1 hour' ELSE interval '0 hours' END AND l.medido_en<=now()
  AND (NOT (f.origen='real' AND upper(trim(f.modelo)) IN ('DHT11','BME680') AND f.codigo IN ('TEMP','HUM')) OR
  (f.estado_nodo='activo' AND EXISTS (SELECT 1 FROM evaluacion_muestra e
  WHERE e.sensor_id=l.sensor_id AND e.id_muestra=l.id_muestra AND e.nodo_id=f.nodo_id

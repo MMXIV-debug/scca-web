@@ -108,6 +108,7 @@ test('visualizador muestra una medición y una curva por variable/sitio con porc
     fetch: async url => ({ ok: ['/api/me', '/api/visualizador/parametros'].includes(url) || url.startsWith('/api/visualizador/series'),
       json: async () => url === '/api/me' ? { rol: 'Visualizador', nombre: 'Prueba' } : datos }),
   };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/graficos-monitoreo.js'), 'utf8'), contexto);
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/visualizador.js'), 'utf8'), contexto);
   await iniciar(); await new Promise(resolve => setImmediate(resolve));
   assert.equal(errores.length, 0);
@@ -126,4 +127,26 @@ test('visualizador muestra una medición y una curva por variable/sitio con porc
   assert.equal(grafico.data.datasets[0].data[0], null);
   assert.match(elemento('filas-parametros').innerHTML, /Sin datos/);
   assert.equal(errores.length, 0);
+});
+
+test('elige dos perfiles de nodos distintos aunque la fuente prioritaria impida formar el par', () => {
+  const [r] = combinar([fila('DHT11', 20, { sensor_id: 1, nodo_id: 1 }),
+    fila('BME680', 24, { sensor_id: 2, nodo_id: 1 }),
+    fila('DHT11', 22, { sensor_id: 3, nodo_id: 2 })]);
+  assert.equal(r.estado_fusion, 'ponderada');
+  assert.equal(r.valor, 23);
+});
+
+test('gráficas BME680 separan presión, gas y altitud y conservan el cero', async () => {
+  const fs = require('node:fs'), vm = require('node:vm');
+  const charts = new Map();
+  const filas = [['PRES',969.35], ['GAS',68140], ['ALT',0]].map(([codigo,valor]) =>
+    fila('BME680', valor, { codigo }));
+  const ctx = { document: { getElementById: id => ({ id }), documentElement: { getAttribute: () => 'light' } },
+    MutationObserver: class { observe() {} }, console,
+    fetch: async () => ({ ok: true, json: async () => filas }),
+    Chart: class { constructor(el, cfg) { charts.set(el.id, cfg); } } };
+  vm.runInNewContext(fs.readFileSync(require.resolve('../public/js/graficos-monitoreo.js'), 'utf8'), ctx);
+  await ctx.crearGraficosMonitoreo({}).cargar();
+  for (const f of filas) assert.equal(charts.get('grafico-'+f.codigo.toLowerCase()).data.datasets[0].data[0], f.valor);
 });

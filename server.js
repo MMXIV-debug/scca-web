@@ -347,7 +347,23 @@ app.get('/api/admin/sitios-fuentes', auth, async (req, res) => {
 
 async function cargarParametros(req, res, combinar = false) {
   try {
-    const { rows } = await pool.query(`SELECT v.codigo, v.nombre AS parametro, u.simbolo AS unidad, s.origen, s.modelo, (SELECT valor FROM lectura_original l WHERE l.sensor_id = s.id AND l.variable_id = v.id ORDER BY l.medido_en DESC, l.id DESC LIMIT 1) AS ultima_medicion, (SELECT medido_en FROM lectura_original l WHERE l.sensor_id = s.id AND l.variable_id = v.id ORDER BY l.medido_en DESC, l.id DESC LIMIT 1) AS ultima_fecha FROM variable v JOIN unidad u ON v.unidad_id = u.id JOIN sensor_variable sv ON sv.variable_id = v.id JOIN sensor s ON s.id = sv.sensor_id`);
+    const { rows } = await pool.query(`SELECT v.codigo,v.nombre AS parametro,u.simbolo AS unidad,
+      s.id AS sensor_id,s.nodo_id,s.origen,s.modelo,l.valor AS ultima_medicion,l.medido_en AS ultima_fecha,
+      e.evidencia->>'altitudAproximadaM' AS altitud
+      FROM sensor s JOIN sensor_variable sv ON sv.sensor_id=s.id JOIN variable v ON sv.variable_id=v.id
+      JOIN unidad u ON u.id=v.unidad_id
+      LEFT JOIN LATERAL (SELECT valor,medido_en,id_muestra FROM lectura_original
+        WHERE sensor_id=s.id AND variable_id=v.id AND calidad='valida' ORDER BY medido_en DESC,id DESC LIMIT 1) l ON true
+      LEFT JOIN evaluacion_muestra e ON v.codigo='PRES' AND e.sensor_id=s.id AND e.id_muestra=l.id_muestra
+      WHERE s.activo ORDER BY s.id,v.id`);
+    for (const fila of rows.filter(r => r.codigo === 'PRES' && r.modelo.trim().toUpperCase() === 'BME680')) {
+      rows.push({ ...fila, codigo: 'ALT', parametro: 'Altitud aproximada', unidad: 'm',
+        ultima_medicion: fila.altitud, ultima_fecha: fila.altitud == null ? null : fila.ultima_fecha });
+    }
+    for (const [codigo, parametro, unidad] of [['PRES','Presión atmosférica','hPa'],['GAS','Resistencia de gas','Ω'],['ALT','Altitud aproximada','m']]) {
+      if (!rows.some(r => r.codigo === codigo)) rows.push({ codigo, parametro, unidad, modelo: 'BME680',
+        origen: 'real', ultima_medicion: null, ultima_fecha: null });
+    }
     if (combinar) {
       const fusion = require('./services/fusionSensoresService');
       return res.json([...rows.filter(r => !fusion.fisico(r)), ...await fusion.mediciones(pool)]);

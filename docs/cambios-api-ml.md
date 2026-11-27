@@ -204,3 +204,13 @@ Con autorización explícita del usuario se ejecutaron correctamente 05_revision
 ## Restauración de entorno por autorización explícita
 
 El usuario autorizó volver a publicar el .env real en el repositorio privado para que el equipo recupere la conexión. Se mantiene .env.example como plantilla. Esta excepción reemplaza la exclusión anterior únicamente para .env; los demás secretos y respaldos siguen excluidos. Retirarlo después no elimina las copias del historial y requiere rotación para invalidar credenciales.
+
+## Recepción y visualización BME680 — 27/11/2026
+
+Los endpoints GET /api/admin/parametros y GET /api/visualizador/parametros incorporan identidad del sensor y nodo para las mediciones físicas. Presión y resistencia de gas se muestran por fuente BME680. ALT representa altitud aproximada en metros obtenida de evaluacion_muestra.evidencia.altitudAproximadaM, vinculada a la misma muestra de presión. Los gráficos horarios incluyen PRES, GAS y ALT y conservan los huecos y la identificación de la fuente.
+
+Ambos paneles muestran los parámetros del BME680. Temperatura y humedad mantienen la condición de evaluación ML válida para la combinación entre nodos. La selección busca dos perfiles distintos en nodos distintos antes de usar una sola fuente disponible.
+
+La recepción continúa utilizando POST /api/lecturas/lote de la API .NET existente. Para recibir un BME680 en una instalación se requiere registrar su nodo, sensor y variables TEMP, HUM, PRES y GAS, configurar las unidades correspondientes y usar esa identidad y la clave IoT de la instalación en el firmware. La plantilla está en arduino/bme680/scca_esp32/config.h. El ID 3 es un ejemplo que debe comprobarse en la base de destino.
+
+La prueba física se realizó con una base PostgreSQL local. Se verificaron recepción de lotes, almacenamiento y gráficos de presión, gas y altitud en ambos roles. Pasaron 49 pruebas de contratos. Quedan pendientes la calibración con suficiente historial y la prueba física simultánea con DHT11. El detector entrenado para el laboratorio, sus datos y sus iniciadores permanecen locales. Esta entrega no aplica migraciones ni registra el nodo en la base compartida.

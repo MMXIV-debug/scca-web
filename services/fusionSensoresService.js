@@ -23,10 +23,16 @@ function combinar(filas, { actual = false, ahora = Date.now() } = {}) {
         && r.ml_utilizable === true && vigente && (actual || Number(r.cobertura) > 0);
     }).sort((a, b) => Number(b.cobertura || 1) - Number(a.cobertura || 1)
       || new Date(b.ultima_fecha) - new Date(a.ultima_fecha) || a.sensor_id - b.sensor_id);
-    const elegidas = [];
-    for (const r of candidatas) {
-      if (elegidas.some(e => e.modelo.trim().toUpperCase() === r.modelo.trim().toUpperCase() || e.nodo_id === r.nodo_id)) continue;
-      elegidas.push(r);
+    // Una fuente del mismo perfil puede compartir nodo con la mejor del otro perfil.
+    // Buscar primero un par completo entre nodos, antes de activar el respaldo.
+    let elegidas = candidatas.slice(0, 1);
+    for (const primera of candidatas) {
+      const segunda = candidatas.find(r => r.nodo_id !== primera.nodo_id
+        && r.modelo.trim().toUpperCase() !== primera.modelo.trim().toUpperCase());
+      if (segunda) {
+        elegidas = [primera, segunda];
+        break;
+      }
     }
     const pesos = elegidas.map(r => actual ? 1 : Math.min(1, Number(r.cobertura)));
     const total = pesos.reduce((a, b) => a + b, 0);
