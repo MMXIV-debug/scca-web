@@ -43,7 +43,7 @@ def ejecutar(raiz=None):
         resumen['politica_version'] = p['version']
         hasta = pd.Timestamp.now(tz='UTC').floor('h')
         dias=max(politica['dias_minimos'],politica['anomalias'].get('dias_minimos',7))
-        desde = hasta - pd.Timedelta(days=2 if politica['arranque_demo'] else min(366, max(60, dias + 7)))
+        desde = hasta - pd.Timedelta(days=7 if politica['arranque_demo'] else min(366, max(60, dias + 7)))
         for sensor in sensores:
             try:
                 perfil = identificar_perfil(sensor['modelo'], sensor['origen'])

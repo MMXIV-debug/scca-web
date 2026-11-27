@@ -115,10 +115,12 @@ def evaluar_arranque(carpeta,meta,criterios,informe,registro,estado,terminar):
         informe['razones']=['muestras_insuficientes_arranque'];return terminar()
     if not np.isfinite(datos.to_numpy(dtype=float)).all():raise ValueError('Datos no finitos.')
     informe['entrenamiento_sha256']=hash_archivo(Path(carpeta)/('historial_fuente.csv' if meta.get('historial_fuente') else 'originales.csv'))
+    contaminacion=min(0.05,max(0.01,float(criterios.get('fpr_maxima',0.05))))
     previo=estado['modelos'].get(estado['activos'].get(informe['clave']),{})
-    if previo.get('entrenamiento_sha256')==informe['entrenamiento_sha256']:
+    if (previo.get('entrenamiento_sha256')==informe['entrenamiento_sha256']
+            and previo.get('parametros',{}).get('contamination')==contaminacion):
         informe['razones']=['sin_datos_nuevos'];return terminar()
-    modelo=IsolationForest(n_estimators=100,contamination='auto',random_state=42,n_jobs=1).fit(datos)
+    modelo=IsolationForest(n_estimators=100,contamination=contaminacion,random_state=42,n_jobs=1).fit(datos)
     pred=modelo.predict(datos)
     informe.update({'estado':'apto_demo','razones':['arranque_sin_validacion_etiquetada'],
         'variables_entrada':columnas,'algoritmo':'isolation_forest','parametros':modelo.get_params(),
