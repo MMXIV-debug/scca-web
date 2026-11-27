@@ -88,6 +88,9 @@
                       <span class="badge bg-secondary voc-placeholder">VOC: próximamente</span>
                     </div>
                   </div>
+                  <div class="carousel-item"><div class="small fw-bold text-center mb-1">Presión atmosférica (hPa)</div><div class="grafico-alto"><canvas id="grafico-pres"></canvas></div></div>
+                  <div class="carousel-item"><div class="small fw-bold text-center mb-1">Resistencia de gas (Ω)</div><div class="grafico-alto"><canvas id="grafico-gas"></canvas></div></div>
+                  <div class="carousel-item"><div class="small fw-bold text-center mb-1">Altitud aproximada (m)</div><div class="grafico-alto"><canvas id="grafico-alt"></canvas></div></div>
                 </div>
 
                 <p class="small text-secondary mt-2 mb-0">Medias por hora de las lecturas recibidas. Los triángulos indican datos parciales; la hora en curso se actualiza al recibir muestras.</p>
@@ -99,6 +102,9 @@
                     <button type="button" data-bs-target="#carrusel-graficos" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Material particulado"></button>
                     <button type="button" data-bs-target="#carrusel-graficos" data-bs-slide-to="1" aria-label="Temperatura y humedad"></button>
                     <button type="button" data-bs-target="#carrusel-graficos" data-bs-slide-to="2" aria-label="Gases"></button>
+                    <button type="button" data-bs-target="#carrusel-graficos" data-bs-slide-to="3" aria-label="Presión atmosférica"></button>
+                    <button type="button" data-bs-target="#carrusel-graficos" data-bs-slide-to="4" aria-label="Resistencia de gas"></button>
+                    <button type="button" data-bs-target="#carrusel-graficos" data-bs-slide-to="5" aria-label="Altitud aproximada"></button>
                   </div>
                   <button class="btn btn-outline-secondary grafico-nav-boton" type="button" data-bs-target="#carrusel-graficos" data-bs-slide="next" aria-label="Gráfico siguiente">
                     <i class="bi bi-chevron-right" aria-hidden="true"></i>
@@ -210,6 +216,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
   <script src="js/eventos-lectura.js"></script>
+  <script src="js/graficos-monitoreo.js"></script>
   <script src="js/visualizador.js"></script>
 </body>
 </html>

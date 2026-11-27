@@ -241,6 +241,12 @@
             </tbody>
           </table>
         </div>
+        <div class="row g-3 mt-2">
+          <div class="col-12 col-xl-6"><h4 class="h6">Temperatura y humedad</h4><div class="grafico-alto"><canvas id="grafico-clima"></canvas></div></div>
+          <div class="col-12 col-xl-6"><h4 class="h6">Presión atmosférica (hPa)</h4><div class="grafico-alto"><canvas id="grafico-pres"></canvas></div></div>
+          <div class="col-12 col-xl-6"><h4 class="h6">Resistencia de gas (Ω)</h4><div class="grafico-alto"><canvas id="grafico-gas"></canvas></div></div>
+          <div class="col-12 col-xl-6"><h4 class="h6">Altitud aproximada (m)</h4><div class="grafico-alto"><canvas id="grafico-alt"></canvas></div></div>
+        </div>
       </section>
 
 
@@ -343,6 +349,8 @@
 
   <!-- Lógica JS del Dashboard -->
   <script src="js/eventos-lectura.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="js/graficos-monitoreo.js"></script>
   <script src="js/dashboard.js"></script>
   <script src="js/infraestructura.js"></script>
   <script src="js/cuarentena.js"></script>

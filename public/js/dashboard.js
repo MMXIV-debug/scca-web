@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     'Content-Type': 'application/json'
   };
 
+  const graf = crearGraficosMonitoreo(H);
   const quienEl = document.getElementById('quien');
   const btnSalir = document.getElementById('btn-salir');
 
@@ -45,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           do {
             refrescoPendiente = false;
-            await Promise.all([cargarMetricasMonitoreo(), cargarSitios(), cargarParametros()]);
+            await Promise.all([cargarMetricasMonitoreo(), cargarSitios(), cargarParametros(), graf.cargar()]);
           } while (refrescoPendiente && !document.hidden);
         } finally {
           actualizando = false;
@@ -65,7 +66,7 @@ window.cargarTodo = async function() {
       cargarUsuarios(), 
       cargarMetricasMonitoreo(),
       cargarSitios(),
-      cargarParametros()
+      cargarParametros(), graf.cargar()
     ]);
   };
   // 1. Solicitudes pendientes
@@ -417,7 +418,7 @@ window.cargarTodo = async function() {
             <td class="fw-bold">${esc(d.sitio)}</td>
             <td>Lat: ${d.latitud}, Lon: ${d.longitud}</td>
             <td>${esc(d.nodo || '—')}</td>
-            <td>${d.origen === 'simulado' ? 'Simulado · Python' : 'Real'}</td>
+            <td>${d.fusion ? esc(describirFusion(d)) : d.origen === 'simulado' ? 'Simulado · Python' : 'Real'}</td>
             <td><span class="badge bg-success-subtle text-success">${esc(d.estado)}</span></td>
           </tr>
         `;
@@ -427,7 +428,7 @@ window.cargarTodo = async function() {
 
   async function cargarParametros() {
     try {
-      const r = await fetch('/api/admin/parametros', { headers: H });
+      const r = await fetch('/api/visualizador/parametros', { headers: H });
       if (!r.ok) return;
       const datos = await r.json();
       
@@ -442,7 +443,7 @@ window.cargarTodo = async function() {
           <tr>
             <td class="fw-bold">${esc(d.parametro)}</td>
             <td>${esc(d.unidad)}</td>
-            <td>${d.origen === 'simulado' ? (d.codigo === 'PM1' ? 'Estimado · 70 % de PM2.5' : 'Simulado · Open-Meteo') : 'Real · Sensor físico'}</td>
+            <td>${d.fusion ? esc(describirFusion(d)) : d.origen === 'simulado' ? (d.codigo === 'PM1' ? 'Estimado · 70 % de PM2.5' : 'Simulado · Open-Meteo') : origenFisico(d)}</td>
             <td class="${d.ultima_medicion != null ? 'text-success fw-bold' : 'text-muted'}">${valor}<small class="d-block text-secondary">${d.ultima_fecha ? new Date(d.ultima_fecha).toLocaleString("es-BO", { timeZone: "America/La_Paz" }) : ""}</small></td>
           </tr>
         `;
