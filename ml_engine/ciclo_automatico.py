@@ -53,7 +53,7 @@ def ejecutar(raiz=None):
                 intervalo = intervalo or sensor['intervalo_muestreo_s']
                 carpeta, _ = preparar(SimpleNamespace(sensor_id=sensor['id'], desde=desde.isoformat(), hasta=hasta.isoformat(),
                     intervalo_s=intervalo, completitud=politica['completitud_minima'],
-                    referencia_open_meteo=perfil.nombre=='contaminantes_simulados', referencia_opcional=True,
+                    referencia_open_meteo=perfil.nombre in ('contaminantes_simulados', 'bme680'), referencia_opcional=True,
                     historial_fuente=politica['arranque_demo'] and perfil.nombre=='contaminantes_simulados',
                     salida=str(raiz / 'datasets')))
                 tareas = [('calibracion', v, 0) for v in perfil.unidades]

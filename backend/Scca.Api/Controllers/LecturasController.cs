@@ -21,6 +21,9 @@ public sealed class LecturaIot
 
 public sealed class MuestraIot
 {
+    // Dato derivado del BME680; se conserva en la evidencia JSON existente.
+    [Range(typeof(decimal), "-1000", "20000", ParseLimitsInInvariantCulture = true)]
+    public decimal? AltitudAproximadaM { get; init; }
     [Range(1, int.MaxValue)]
     public int SensorId { get; init; }
     [Range(1, long.MaxValue)]
@@ -156,6 +159,8 @@ public sealed class LecturasController(
                 : modelo == "DHT11" ? "dht11" : modelo == "BME680" ? "bme680" : null;
             if (perfil is null)
                 return (422, new { error = "Hardware sin perfil de ingesta definido." });
+            if (muestra.AltitudAproximadaM is not null && perfil != "bme680")
+                return (422, new { error = "La altitud aproximada solo corresponde al perfil BME680." });
 
             var unidades = perfil switch
             {
@@ -276,7 +281,8 @@ public sealed class LecturasController(
                     using var limiteMl = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                     limiteMl.CancelAfter(TimeSpan.FromSeconds(3));
                     using var requestMl = new HttpRequestMessage(HttpMethod.Post, "api/v2/modelos/muestra")
-                    { Content = JsonContent.Create(new { nodo_id = nodoId, sensor_id = muestra.SensorId, perfil, valores }) };
+                    { Content = JsonContent.Create(new { nodo_id = nodoId, sensor_id = muestra.SensorId, perfil, valores,
+                        altitud_aproximada_m = muestra.AltitudAproximadaM }) };
                     requestMl.Headers.Add("X-Api-Key", expected);
                     using var response = await clients.CreateClient("ModeloMl").SendAsync(requestMl, limiteMl.Token);
                     estadoMl = response.IsSuccessStatusCode ? "respuesta_invalida" : "ml_no_disponible";
@@ -322,6 +328,8 @@ public sealed class LecturasController(
                 modeloVersion,
                 validacionIndependiente = false,
                 unidades,
+                altitudAproximadaM = muestra.AltitudAproximadaM,
+                procedenciaAltitud = muestra.AltitudAproximadaM is null ? null : "estimada a partir de presión; no es una medición independiente",
                 motivosInvalidos = aCuarentenaPorDatoInvalido ? motivosInvalidos : null,
                 interpretacion = aCuarentenaPorDatoInvalido
                     ? "Muestra retenida en cuarentena por validación de datos inválidos; pendiente de revisión administrativa."
@@ -363,6 +371,7 @@ public sealed class LecturasController(
                         muestra.SensorId,
                         idMuestra = muestra.IdMuestra.ToString(CultureInfo.InvariantCulture),
                         muestra.MedidoEn,
+                        muestra.AltitudAproximadaM,
                         muestra.Lecturas,
                         evaluacionMl
                     }, new JsonSerializerOptions(JsonSerializerDefaults.Web)));

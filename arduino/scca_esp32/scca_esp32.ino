@@ -31,6 +31,9 @@
 #if defined(PERFIL_BME680)
   #include <Adafruit_Sensor.h>
   #include <Adafruit_BME680.h>
+  #ifndef PRESION_NIVEL_MAR_HPA
+  #define PRESION_NIVEL_MAR_HPA 1013.25f
+  #endif
   static Adafruit_BME680 bme;
 #elif defined(PERFIL_DHT11)
   #include <DHT.h>
@@ -264,6 +267,12 @@ static bool enviarLotePendiente() {
 #if defined(PERFIL_BME680)
     agregar("PRES", UNIDAD_ID_PRES, reg.pres);
     agregar("GAS",  UNIDAD_ID_GAS,  reg.gas);
+    // Derivar desde la presión capturada: conserva el formato del buffer offline.
+    // Puede ajustarse en config.h con la presión local reducida al nivel del mar.
+    if (isfinite(reg.pres) && reg.pres > 0 && PRESION_NIVEL_MAR_HPA > 0) {
+      float altitud = 44330.0f * (1.0f - powf(reg.pres / PRESION_NIVEL_MAR_HPA, 0.1903f));
+      m["altitudAproximadaM"] = roundf(altitud * 100.0f) / 100.0f;
+    }
 #endif
     validasEnLote++;
   }

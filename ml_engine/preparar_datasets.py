@@ -91,11 +91,11 @@ def preparar(args):
             'filas_extraidas': len(filas_ref),
         }
     elif args.referencia_open_meteo:
-        if perfil.nombre != 'contaminantes_simulados':
-            raise ValueError('Esta referencia de aire solo cubre contaminantes, no DHT11/BME680.')
+        if perfil.nombre not in ('contaminantes_simulados', 'bme680'):
+            raise ValueError('Referencia Open-Meteo no configurada para este perfil.')
         try:
-            referencia = descargar_referencia(float(meta['latitud']), float(meta['longitud']), desde, hasta)
-            normalizada = normalizar_referencia(referencia[0], desde, hasta)
+            referencia = descargar_referencia(float(meta['latitud']), float(meta['longitud']), desde, hasta, perfil=perfil.nombre)
+            normalizada = normalizar_referencia(referencia[0], desde, hasta, perfil=perfil.nombre)
             pares = emparejar_referencia(horas, normalizada)
         except Exception:
             if not getattr(args, 'referencia_opcional', False):
@@ -129,7 +129,7 @@ def preparar(args):
     cobertura.to_csv(carpeta / 'completitud.csv')
     if 'PM25' in horas:
         objetivos_temporales(horas).to_csv(carpeta / 'objetivos_pm25.csv')
-    historial_fuente = bool(getattr(args, 'historial_fuente', False) and referencia)
+    historial_fuente = bool(getattr(args, 'historial_fuente', False) and referencia and perfil.nombre == 'contaminantes_simulados')
     if historial_fuente:
         # Historial del proveedor, separado de originales del nodo y sin insertarlo en BD.
         fuente = normalizada.copy()

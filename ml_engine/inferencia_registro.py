@@ -186,13 +186,23 @@ def crear_router_registro(raiz, obtener_clave, obtener_detector=None, obtener_ve
         sensor_id:int=Field(gt=0,strict=True)
         perfil:Literal['dht11','bme680','contaminantes_simulados']
         valores:dict[str,float]=Field(min_length=1,max_length=4)
+        altitud_aproximada_m:float | None=Field(default=None,ge=-1000,le=20000)
 
     @router.post('/muestra')
     def muestra(solicitud:MuestraBruta):
         identidad={'nodo_id':solicitud.nodo_id,'sensor_id':solicitud.sensor_id}
+        if solicitud.altitud_aproximada_m is not None:
+            if solicitud.perfil != 'bme680':
+                raise HTTPException(422,'La altitud aproximada solo corresponde al BME680.')
+            # No alterar las columnas de los detectores existentes ni tratar una
+            # derivación de PRES como una quinta medición independiente.
+            identidad['altitud_aproximada_m'] = solicitud.altitud_aproximada_m
+            identidad['altitud_estado'] = 'derivada_no_evaluada_por_detector'
         if set(solicitud.valores)!=set(PERFILES[solicitud.perfil].unidades):
             raise HTTPException(422,'Se requieren todas las variables del perfil.')
         for c,v in solicitud.valores.items():
+            if solicitud.perfil == 'bme680' and (c == 'TEMP' and not -40 <= v <= 85 or c == 'PRES' and not 300 <= v <= 1100):
+                raise HTTPException(422,'Entrada fuera del rango físico del BME680.')
             if (c!='TEMP' and v<0) or c=='HUM' and v>100 or c in ('PRES','GAS') and v<=0 or c=='TEMP' and (v< -273.15 or solicitud.perfil=='dht11' and not 0<=v<=50):
                 raise HTTPException(422,'Entrada fuera del rango físico.')
         seleccion=SeleccionModelo(nodo_id=solicitud.nodo_id,sensor_id=solicitud.sensor_id,perfil=solicitud.perfil,

@@ -74,3 +74,10 @@ class ArranqueTests(unittest.TestCase):
                 body={'nodo_id':1,'sensor_id':1,'perfil':perfil,'valores':{c:{'TEMP':20.1,'HUM':50.1,'PRES':1010.1,'GAS':10000.1}[c] for c in columnas}}
                 code,res=asyncio.run(solicitar(app,'/api/v2/modelos/muestra',body))
                 self.assertEqual(code,200,res);self.assertIsInstance(res['es_anomalia'],bool)
+                if perfil == 'bme680':
+                    code,con_altitud=asyncio.run(solicitar(app,'/api/v2/modelos/muestra',
+                        {**body,'altitud_aproximada_m':372.0}))
+                    self.assertEqual(code,200,con_altitud)
+                    self.assertEqual(con_altitud['es_anomalia'],res['es_anomalia'])
+                    self.assertEqual(con_altitud['modelo_version'],res['modelo_version'])
+                    self.assertEqual(con_altitud['altitud_aproximada_m'],372.0)
