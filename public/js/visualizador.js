@@ -119,9 +119,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) { console.error(e); }
   }
 
+  function describirFusion(d) {
+    const fuentes = (d.componentes || []).map(c => `${c.modelo} · nodo ${c.nodo_id}: ${c.porcentaje} %`).join(' + ');
+    return `Sitio ${d.sitio_id} · ${fuentes || 'Sin datos válidos evaluados por ML'}`
+      + (d.estado_fusion === 'respaldo' ? ' · respaldo' : '');
+  }
+
   async function cargarParametros() {
     try {
-      const r = await fetch('/api/admin/parametros', { headers: H });
+      const r = await fetch('/api/visualizador/parametros', { headers: H });
       if (!r.ok) return;
       const datos = await r.json();
       
@@ -135,7 +141,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <tr>
             <td class="fw-bold">${esc(d.parametro)}</td>
             <td>${esc(d.unidad)}</td>
-            <td>${d.origen === 'simulado' ? 'Simulado' : 'Real · Sensor físico'}</td>
+            <td>${d.fusion ? esc(describirFusion(d)) : d.origen === 'simulado' ? 'Simulado' : 'Real · Sensor físico'}</td>
             <td class="${d.ultima_medicion != null ? 'text-success fw-bold' : 'text-muted'}">${valor}<small class="d-block text-secondary">${d.ultima_fecha ? new Date(d.ultima_fecha).toLocaleString("es-BO", { timeZone: "America/La_Paz" }) : ""}</small></td>
           </tr>
         `;
@@ -220,7 +226,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const datasets = cfg.series.flatMap(s => [...new Map(filas.filter(f=>f.codigo===s.codigo).map(f=>[f.sensor_id,f])).values()].map(f=>{
           const c = colorSerie(s);
           return {
-            label: `${s.etiqueta} · nodo ${f.nodo_id}, sensor ${f.sensor_id}, ${f.origen}`,
+            label: f.fusion ? `${s.etiqueta} · sitio ${f.sitio_id} · DHT11/BME680` : `${s.etiqueta} · nodo ${f.nodo_id}, sensor ${f.sensor_id}, ${f.origen}`,
             data: horas.map(h => porVariable[f.sensor_id+'/'+s.codigo]?.[h]?.valor ?? null),
             metadatosHoras: horas.map(h => porVariable[f.sensor_id+'/'+s.codigo]?.[h]),
             borderColor: c,
@@ -256,7 +262,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const hora = contexto.dataset.metadatosHoras[contexto.dataIndex];
                 if (!hora) return '';
                 return `${hora.parcial ? 'Parcial' : 'Cobertura suficiente'} · ${Math.round(hora.cobertura * 100)} % de cobertura`
-                  + (hora.hora_cerrada === false ? ' · hora en curso' : '');
+                  + (hora.hora_cerrada === false ? ' · hora en curso' : '')
+                  + (hora.fusion ? ` · ${describirFusion(hora)}` : '');
               } } },
             },
             scales: {
@@ -295,7 +302,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const fuentes=datos.filter(d=>d.codigo===f.codigo);
         if (!fuentes.length) return [`<tr><td class="fw-bold">${f.nombre}</td><td class="text-end text-muted" colspan="2">${f.codigo === 'VOC' ? 'Próximamente' : 'Sin cobertura suficiente'}</td></tr>`];
         return fuentes.map(d=>`<tr>
-          <td class="fw-bold">${f.nombre}<small class="d-block text-secondary">Sensor ${d.sensor_id} · ${esc(d.origen)} · ${d.horas_con_datos ?? d.horas_validas} h con lecturas · ${d.horas_validas} h con cobertura suficiente${d.incluye_parciales ? ' · incluye datos parciales' : ''}</small></td>
+          <td class="fw-bold">${f.nombre}<small class="d-block text-secondary">${d.fusion ? `Sitio ${d.sitio_id} · DHT11/BME680` : `Sensor ${d.sensor_id} · ${esc(d.origen)}`} · ${d.horas_con_datos ?? d.horas_validas} h con lecturas · ${d.horas_validas} h con cobertura suficiente${d.incluye_parciales ? ' · incluye datos parciales' : ''}</small></td>
           <td class="text-end">${d.promedio} <small class="text-secondary">${f.unidad}</small></td>
           <td class="text-end small text-secondary">${d.minimo.toFixed(1)} – ${d.maximo.toFixed(1)}</td>
         </tr>`);

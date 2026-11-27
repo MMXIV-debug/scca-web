@@ -17,6 +17,7 @@ function completarSwagger(documento) {
       ['get', '/admin/metricas-monitoreo', 'Consultar métricas de nodos y sensores'],
       ['get', '/admin/sitios-fuentes', 'Consultar sitios y fuentes'],
       ['get', '/admin/parametros', 'Consultar las últimas mediciones'],
+      ['get', '/visualizador/parametros', 'Consultar mediciones con ponderación DHT11/BME680 y respaldo por sitio'],
       ['get', '/visualizador/resumen', 'Consultar el indicador de calidad del aire'],
       ['get', '/visualizador/series', 'Consultar series horarias'],
       ['get', '/visualizador/semanal', 'Consultar la media semanal'],

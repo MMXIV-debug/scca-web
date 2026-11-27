@@ -345,12 +345,18 @@ app.get('/api/admin/sitios-fuentes', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Error cargando sitios' }); }
 });
 
-app.get('/api/admin/parametros', auth, async (req, res) => {
+async function cargarParametros(req, res, combinar = false) {
   try {
     const { rows } = await pool.query(`SELECT v.codigo, v.nombre AS parametro, u.simbolo AS unidad, s.origen, s.modelo, (SELECT valor FROM lectura_original l WHERE l.sensor_id = s.id AND l.variable_id = v.id ORDER BY l.medido_en DESC, l.id DESC LIMIT 1) AS ultima_medicion, (SELECT medido_en FROM lectura_original l WHERE l.sensor_id = s.id AND l.variable_id = v.id ORDER BY l.medido_en DESC, l.id DESC LIMIT 1) AS ultima_fecha FROM variable v JOIN unidad u ON v.unidad_id = u.id JOIN sensor_variable sv ON sv.variable_id = v.id JOIN sensor s ON s.id = sv.sensor_id`);
+    if (combinar) {
+      const fusion = require('./services/fusionSensoresService');
+      return res.json([...rows.filter(r => !fusion.fisico(r)), ...await fusion.mediciones(pool)]);
+    }
     res.json(rows);
   } catch (e) { res.status(500).json({ error: 'Error cargando parámetros' }); }
-});
+}
+app.get('/api/admin/parametros', auth, (req, res) => cargarParametros(req, res));
+app.get('/api/visualizador/parametros', auth, (req, res) => cargarParametros(req, res, true));
 
 app.get('/api/visualizador/resumen', auth, async (req, res) => {
   try{return res.json(await require('./services/seriesService').resumen(pool,calcularAQI_EPA,req.query));}
