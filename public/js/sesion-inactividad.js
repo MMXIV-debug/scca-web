@@ -29,10 +29,20 @@
       else window.location.href = '/';
     };
 
+    let ultimoAviso = 0;
+    const avisarServidor = () => {
+      const t = localStorage.getItem('token');
+      if (!t || Date.now() - ultimoAviso < 60000) return;
+      ultimoAviso = Date.now();
+      fetch('/api/sesion/actividad', { method: 'POST', headers: { Authorization: 'Bearer ' + t } })
+        .then((r) => { if (r.status === 401) cerrarPorInactividad(); })
+        .catch(() => {});
+    };
     const reiniciar = () => {
       if (cerrado) return;
       clearTimeout(timer);
       timer = setTimeout(cerrarPorInactividad, INACTIVIDAD_MS);
+      avisarServidor();
     };
 
     ['pointerdown', 'keydown', 'mousemove', 'scroll', 'touchstart'].forEach((ev) => {

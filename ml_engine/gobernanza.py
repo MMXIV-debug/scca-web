@@ -22,6 +22,35 @@ def ahora():
     return datetime.now(timezone.utc).isoformat()
 
 
+def _proceso_vivo(pid):
+    """Comprueba si un PID existe sin enviar señales (os.kill(pid, 0) es peligroso en Windows)."""
+    if pid <= 0:
+        return False
+    if os.name == 'nt':
+        import ctypes
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        STILL_ACTIVE = 259
+        kernel32 = ctypes.windll.kernel32
+        manejador = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not manejador:
+            # Acceso denegado implica que el proceso existe; cualquier otro error, que no.
+            return ctypes.GetLastError() == 5
+        try:
+            codigo = ctypes.c_ulong()
+            if not kernel32.GetExitCodeProcess(manejador, ctypes.byref(codigo)):
+                return True
+            return codigo.value == STILL_ACTIVE
+        finally:
+            kernel32.CloseHandle(manejador)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 def hash_archivo(ruta):
     return hashlib.sha256(Path(ruta).read_bytes()).hexdigest()
 
@@ -86,13 +115,37 @@ class Registro:
         self.raiz = Path(raiz).resolve()
         self.raiz.mkdir(parents=True, exist_ok=True)
 
+    def _bloqueo_obsoleto(self, bloqueo):
+        """Un .lock es obsoleto si su proceso propietario ya no existe."""
+        try:
+            pid = int(json.loads((bloqueo / 'propietario.json').read_text(encoding='utf-8'))['pid'])
+        except (OSError, ValueError, KeyError, TypeError):
+            # Sin propietario legible: solo es obsoleto si lleva tiempo sin renovarse.
+            try:
+                return datetime.now().timestamp() - bloqueo.stat().st_mtime > 600
+            except OSError:
+                return True
+        if pid == os.getpid():
+            return False
+        return not _proceso_vivo(pid)
+
     @contextmanager
     def bloquear(self):
         bloqueo = self.raiz / '.lock'
-        try:
-            bloqueo.mkdir()
-        except FileExistsError as exc:
-            raise ValueError('Registro ocupado; si hubo un fallo revisa el proceso antes de retirar .lock.') from exc
+        for intento in range(2):
+            try:
+                bloqueo.mkdir()
+                break
+            except FileExistsError as exc:
+                if intento == 0 and self._bloqueo_obsoleto(bloqueo):
+                    # Recuperación tras un cierre abrupto (corte de luz, taskkill /F).
+                    (bloqueo / 'propietario.json').unlink(missing_ok=True)
+                    try:
+                        bloqueo.rmdir()
+                    except OSError:
+                        pass
+                    continue
+                raise ValueError('Registro ocupado; si hubo un fallo revisa el proceso antes de retirar .lock.') from exc
         try:
             escribir_json(bloqueo / 'propietario.json', {'pid': os.getpid(), 'creado_en': ahora()})
             yield

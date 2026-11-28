@@ -40,6 +40,12 @@ public sealed class LoteMuestrasIot
     public required List<MuestraIot> Muestras { get; init; }
 }
 
+// Estado compartido durante un lote: si ML falla una vez, no se insiste en las demás muestras.
+internal sealed class EstadoLote
+{
+    public bool MlCaido { get; set; }
+}
+
 [ApiController]
 [Route("api/lecturas")]
 public sealed class LecturasController(
@@ -93,10 +99,11 @@ public sealed class LecturasController(
 
         int guardadas = 0, cuarentena = 0, duplicadas = 0, rechazadas = 0;
         var resultados = new List<object>(lote.Muestras.Count);
+        var estadoLote = new EstadoLote();
 
         foreach (var muestra in lote.Muestras)
         {
-            var (status, body) = await ProcesarMuestraAsync(muestra, expected!, cancellationToken);
+            var (status, body) = await ProcesarMuestraAsync(muestra, expected!, cancellationToken, estadoLote);
             if (status == 201)
             {
                 var json = JsonSerializer.SerializeToElement(body);
@@ -121,7 +128,7 @@ public sealed class LecturasController(
     }
 
     private async Task<(int StatusCode, object Body)> ProcesarMuestraAsync(
-        MuestraIot muestra, string expected, CancellationToken cancellationToken)
+        MuestraIot muestra, string expected, CancellationToken cancellationToken, EstadoLote? lote = null)
     {
         // --- 1. Rechazo directo por contrato estructural inválido (no identificable) ---
         if (muestra.MedidoEn == default)
@@ -275,7 +282,9 @@ public sealed class LecturasController(
                 estadoMl = "sin_modelo";
                 // Consultar por perfil; Python solo utiliza el detector legado como
                 // respaldo de contaminantes simulados, nunca para hardware distinto.
-                try
+                if (lote?.MlCaido == true)
+                    estadoMl = "ml_no_disponible";
+                else try
                 {
                     var valores = muestra.Lecturas.ToDictionary(l => l.VariableCodigo, l => l.Valor);
                     using var limiteMl = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -316,6 +325,8 @@ public sealed class LecturasController(
                 {
                     estadoMl = ex is JsonException or InvalidOperationException ? "respuesta_invalida" : "ml_no_disponible";
                 }
+                if (lote is not null && estadoMl == "ml_no_disponible")
+                    lote.MlCaido = true;
             }
 
             var evaluacionMl = new

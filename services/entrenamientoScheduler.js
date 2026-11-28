@@ -22,7 +22,10 @@ function iniciarEntrenamientoAutomatico() {
   function revisar() {
     if (ocupado || Date.now() - ultimoIntento < 3600000) return;
     try {
-      if (fs.existsSync(path.join(ciclos, '.lock'))) return;
+      // Un .lock reciente indica un ciclo en curso; uno antiguo puede ser de un cierre abrupto
+      // y Python lo recupera solo si su proceso propietario ya no existe.
+      const bloqueo = path.join(ciclos, '.lock');
+      if (fs.existsSync(bloqueo) && Date.now() - fs.statSync(bloqueo).mtimeMs < 900000) return;
       const limite = process.env.ML_ARRANQUE_DEMO === 'true' ? Date.now()-3600000 : semanaVigente();
       if (
         fs.existsSync(ciclos) &&

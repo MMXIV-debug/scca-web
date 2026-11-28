@@ -6,6 +6,7 @@ function completarSwagger(documento) {
     ['Usuarios', '/api', [
       ['get', '/me', 'Consultar la sesión actual'],
       ['post', '/logout', 'Cerrar la sesión actual'],
+      ['post', '/sesion/actividad', 'Renovar la actividad de la sesión (inactividad de 15 min)'],
       ['get', '/admin/solicitudes', 'Listar solicitudes de acceso'],
       ['get', '/admin/usuarios', 'Listar usuarios'],
       ['post', '/admin/solicitudes/{id}/aprobar', 'Aprobar una solicitud'],

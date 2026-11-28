@@ -1,4 +1,25 @@
 require('dotenv').config();
+
+// Red de seguridad: un fallo no controlado no debe tumbar todo el panel.
+{
+  const fallos = [];
+  const registrar = (tipo, error) => {
+    console.error(`[${tipo}] Error no controlado:`, error?.stack || error);
+    const ahora = Date.now();
+    fallos.push(ahora);
+    while (fallos.length && ahora - fallos[0] > 60000) fallos.shift();
+    if (fallos.length > 20) {
+      console.error('Demasiados errores no controlados en 1 minuto; se detiene el servidor para evitar un estado inconsistente.');
+      process.exit(1);
+    }
+  };
+  process.on('unhandledRejection', (motivo) => registrar('unhandledRejection', motivo));
+  process.on('uncaughtException', (error) => registrar('uncaughtException', error));
+}
+const { crearLimitador, limitarPorIp } = require('./services/limitador');
+const limiteLoginIp = crearLimitador({ ventanaMs: 15 * 60 * 1000, max: 30 });
+const limiteLoginFallos = crearLimitador({ ventanaMs: 15 * 60 * 1000, max: 8 });
+const limiteRegistroIp = crearLimitador({ ventanaMs: 60 * 60 * 1000, max: 5 });
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -68,16 +89,15 @@ async function auth(req, res, next) {
   const claveSesion = sesion.sid || token;
   const ahora = Date.now();
   const ultima = ultimaActividadSesion.get(claveSesion);
-  if (ultima != null && ahora - ultima > INACTIVIDAD_MAX_MS) {
+  if (ultima == null || ahora - ultima > INACTIVIDAD_MAX_MS) {
     ultimaActividadSesion.delete(claveSesion);
     return res.status(401).json({
       error: 'Sesión cerrada por 15 minutos de inactividad. Inicia sesión nuevamente.',
       codigo: 'INACTIVIDAD',
     });
   }
-  if (req.headers['x-scca-bg'] !== '1') {
-    ultimaActividadSesion.set(claveSesion, ahora);
-  }
+  // La actividad solo se renueva con la señal explícita del usuario (/api/sesion/actividad).
+  // Las consultas automáticas del panel (cada 15 s) no deben mantener viva la sesión.
   req.sesionId = claveSesion;
   try {
     // Los permisos vigentes prevalecen sobre el rol guardado en el token.
@@ -203,7 +223,7 @@ function calcularAQI_EPA(pm25) {
  */
 
 // ---------- Autenticación y Perfil ----------
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', limitarPorIp(limiteRegistroIp, 'Demasiadas solicitudes de registro desde esta red. Inténtalo más tarde.'), async (req, res) => {
   const { username, nombre_completo, email, password, rol_solicitado } = req.body;
   if (!username || !nombre_completo || !password || password.length < 8) return res.status(400).json({ error: 'Datos incompletos' });
   if (!['Administrador', 'Visualizador'].includes(rol_solicitado)) return res.status(400).json({ error: 'Rol inválido' });
@@ -248,15 +268,25 @@ app.post('/api/register', async (req, res) => {
  */
 
 
-app.post('/api/login', async (req, res) => {
-  const { username, password } = req.body;
+app.post('/api/login', limitarPorIp(limiteLoginIp, 'Demasiados intentos de inicio de sesión. Inténtalo más tarde.'), async (req, res) => {
+  const { username, password } = req.body || {};
+  const claveFallos = `${req.ip}|${String(username || '').trim().toLowerCase()}`;
+  const bloqueo = limiteLoginFallos.revisar(claveFallos);
+  if (!bloqueo.permitido) {
+    res.set('Retry-After', String(bloqueo.reintentarEn));
+    return res.status(429).json({ error: 'Demasiados intentos fallidos. Espera unos minutos antes de volver a intentar.', reintentar_en_s: bloqueo.reintentarEn });
+  }
   try {
     const { rows } = await pool.query(
       `SELECT u.*, r.nombre AS rol FROM usuario u LEFT JOIN rol r ON r.id = u.rol_id WHERE u.username = $1`, 
       [username ? username.trim() : '']
     );
     const u = rows[0];
-    if (!u || !(await bcrypt.compare(password || '', u.password_hash))) return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+    if (!u || !(await bcrypt.compare(password || '', u.password_hash))) {
+      limiteLoginFallos.consumir(claveFallos);
+      return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+    }
+    limiteLoginFallos.reiniciar(claveFallos);
     if (u.estado === 'pendiente') return res.status(403).json({ error: 'Cuenta pendiente de aprobación' });
     if (u.estado === 'inactivo' || !u.activo) return res.status(403).json({ error: 'Cuenta inhabilitada' });
     if (u.estado === 'rechazado') return res.status(403).json({ error: 'Solicitud rechazada' });
@@ -268,6 +298,16 @@ app.post('/api/login', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: 'Error al iniciar sesión' });
   }
+});
+
+setInterval(() => {
+  const limite = Date.now() - INACTIVIDAD_MAX_MS * 2;
+  for (const [clave, t] of ultimaActividadSesion) if (t < limite) ultimaActividadSesion.delete(clave);
+}, 5 * 60 * 1000).unref();
+
+app.post('/api/sesion/actividad', auth, (req, res) => {
+  ultimaActividadSesion.set(req.sesionId, Date.now());
+  res.json({ ok: true });
 });
 
 app.post('/api/logout', auth, (req, res) => {
