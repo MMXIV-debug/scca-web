@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Iniciar SCCA
+Comment=Prepara dependencias e inicia SCCA
+Terminal=true
+Icon=utilities-terminal
+Exec=bash -c "d=\"\$(dirname \"\$1\")\"; d=\"\${d#file://}\"; cd \"\$d\" && bash ./instalar.sh; echo; read -r -p \"Presiona Enter para cerrar...\" _" _ %k

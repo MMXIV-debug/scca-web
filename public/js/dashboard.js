@@ -16,11 +16,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnSalir = document.getElementById('btn-salir');
 
   const salir = () => {
+    const t = localStorage.getItem('token');
+    if (t) fetch('/api/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + t }, keepalive: true }).catch(() => {});
     localStorage.removeItem('token');
     window.location.href = '/';
   };
 
   if (btnSalir) btnSalir.addEventListener('click', salir);
+  if (typeof window.iniciarControlInactividad === 'function') {
+    window.iniciarControlInactividad(() => {
+      localStorage.removeItem('token');
+      window.location.href = '/';
+    });
+  }
 
   async function init() {
     try {

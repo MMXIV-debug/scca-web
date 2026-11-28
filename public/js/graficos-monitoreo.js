@@ -70,9 +70,10 @@ function crearGraficosMonitoreo(H) {
     });
   }
 
-  async function cargarGraficos(horasGrafico = 24) {
+  async function cargarGraficos(horasGrafico = 24, filtros = {}) {
     try {
-      const r = await fetch(`/api/visualizador/series?horas=${horasGrafico}`, { headers: H });
+      const sufijo = filtros.sitioId ? `&sitioId=${encodeURIComponent(filtros.sitioId)}` : '';
+      const r = await fetch(`/api/visualizador/series?horas=${horasGrafico}${sufijo}`, { headers: H });
       if (!r.ok) return;
       const filas = await r.json();
 

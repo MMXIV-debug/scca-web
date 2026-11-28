@@ -5,6 +5,7 @@ function completarSwagger(documento) {
   const grupos = [
     ['Usuarios', '/api', [
       ['get', '/me', 'Consultar la sesión actual'],
+      ['post', '/logout', 'Cerrar la sesión actual'],
       ['get', '/admin/solicitudes', 'Listar solicitudes de acceso'],
       ['get', '/admin/usuarios', 'Listar usuarios'],
       ['post', '/admin/solicitudes/{id}/aprobar', 'Aprobar una solicitud'],
@@ -23,6 +24,7 @@ function completarSwagger(documento) {
       ['get', '/visualizador/semanal', 'Consultar la media semanal'],
       ['get', '/visualizador/clima', 'Consultar el clima y pronóstico meteorológico'],
       ['get', '/visualizador/alertas', 'Consultar alertas visibles'],
+      ['get', '/visualizador/modelos', 'Consultar modelos ML activos, referencias y resultados recientes'],
       ['get', '/visualizador/eventos', 'Suscribirse a eventos de lecturas (SSE)'],
     ]],
     ['Machine Learning', '/api/admin/ml', [

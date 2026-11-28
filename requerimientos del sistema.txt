@@ -1,0 +1,80 @@
+REQUERIMIENTOS DEL SISTEMA - SCCA (scca-web)
+============================================
+
+1. HERRAMIENTAS / RUNTIMES DEL SISTEMA (OBLIGATORIAS)
+-----------------------------------------------------
+- Node.js LTS (versión 18 o superior, con npm incluido)
+  Ejecuta el panel web (server.js) y el orquestador (iniciar.js).
+- Python 3.11 o superior (recomendado 3.12, con pip y módulo venv)
+  Ejecuta el motor de Machine Learning (ml_engine/) y el simulador (python/simulador.py).
+- .NET SDK 10.0 (net10.0)
+  Compila y ejecuta la API en ASP.NET Core (backend/Scca.Api/Scca.Api.csproj).
+- Conexión a Internet
+  Necesaria para instalar paquetes, conectarse a PostgreSQL en la nube y consultar
+  datos externos (Open-Meteo / CAMS).
+
+
+2. PAQUETES DE NODE.JS (package.json)
+-------------------------------------
+Instalación: npm ci   (o npm install)
+
+- express (^5.3.0)
+- pg (^8.23.1)
+- dotenv (^18.0.9)
+- bcryptjs (^3.0.3)
+- jsonwebtoken (^9.0.3)
+- swagger-jsdoc (^6.3.0)
+- swagger-ui-express (^5.0.1)
+
+
+3. PAQUETES DE PYTHON (requirements.txt)
+----------------------------------------
+Instalación dentro del entorno virtual .venv:
+  python -m venv .venv
+  pip install -r requirements.txt
+
+- fastapi
+- uvicorn
+- pydantic
+- requests
+- psycopg2-binary
+- SQLAlchemy
+- python-dotenv
+- pandas
+- scikit-learn
+- xgboost
+- joblib
+
+
+4. PAQUETES NUGET DE .NET (backend/Scca.Api/Scca.Api.csproj)
+------------------------------------------------------------
+Instalación: dotnet restore backend/Scca.Api/Scca.Api.csproj
+
+- Npgsql (10.0.3)
+- Swashbuckle.AspNetCore (10.2.3)
+
+
+5. BASE DE DATOS, CONFIGURACIÓN Y PUERTOS
+-----------------------------------------
+- PostgreSQL accesible:
+  El proyecto usa una base PostgreSQL alojada en la nube ya preparada.
+  Si se usa una base nueva, aplicar los scripts de la carpeta db/
+  (incluido db/03_jerarquia_admin.sql).
+- Archivo .env en la raíz del proyecto (ver plantilla en .env.example) con:
+  * DATABASE_URL  (cadena de conexión PostgreSQL)
+  * JWT_SECRET    (secreto privado para tokens de sesión)
+  * IOT_API_KEY   (clave compartida con sensores ESP32 / simulador)
+- Puertos libres (por defecto):
+  * 3000  -> Panel web (Node.js / Express)
+  * 5051  -> API REST y Swagger (.NET 10)
+  * 8000  -> Servicio de inferencia ML (Python / FastAPI)
+
+
+6. OPCIONALES (SOLO PARA FUNCIONES EXTRA)
+-----------------------------------------
+- PostgreSQL local (initdb, pg_ctl, etc.):
+  Solo necesario si se ejecutan pruebas con base temporal local
+  (demo-correccion.js o tests/aceptacion-sprints-1-2.cjs).
+- Arduino IDE / toolchain para ESP32:
+  Solo necesario si se compila y carga el firmware en un ESP32 físico
+  (arduino/scca_esp32/scca_esp32.ino o arduino/bme680/scca_esp32/scca_esp32.ino).

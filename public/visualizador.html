@@ -36,6 +36,7 @@
         <div class="sidebar-subnav" aria-label="Subsecciones de Consultar monitoreo ambiental">
         <a class="sidebar-link sidebar-sublink" href="#seccion-sitios"><i class="bi bi-geo-alt me-2"></i>Sitios y fuentes</a>
         <a class="sidebar-link sidebar-sublink" href="#seccion-parametros"><i class="bi bi-list-check me-2"></i>Parámetros</a>
+        <a class="sidebar-link sidebar-sublink" href="#seccion-ml"><i class="bi bi-cpu me-2"></i>Modelos ML y referencias</a>
         </div>
       </nav>
       <div class="mt-5 p-2 border-top"><span class="badge bg-secondary-subtle text-dark">PROTOTIPO SCCA</span><p class="small text-secondary mt-2">Panel de consulta.</p></div>
@@ -56,6 +57,36 @@
         </div>
         
         <p class="small text-secondary mt-3">Resumen en tiempo real del monitoreo y estado de los sitios.</p>
+
+        <!-- Filtros de consulta (RF-10) -->
+        <div class="panel-box p-3 mt-2 mb-3">
+          <div class="row g-2 align-items-end">
+            <div class="col-12 col-sm-6 col-md-4">
+              <label for="filtro-sitio" class="form-label small fw-semibold mb-1">Filtrar por sitio</label>
+              <select id="filtro-sitio" class="form-select form-select-sm">
+                <option value="">Todos los sitios</option>
+              </select>
+            </div>
+            <div class="col-12 col-sm-6 col-md-4">
+              <label for="filtro-variable" class="form-label small fw-semibold mb-1">Filtrar por variable</label>
+              <select id="filtro-variable" class="form-select form-select-sm">
+                <option value="">Todas las variables</option>
+                <option value="PM1">PM1</option>
+                <option value="PM25">PM2.5</option>
+                <option value="PM10">PM10</option>
+                <option value="CO">CO</option>
+                <option value="TEMP">Temperatura</option>
+                <option value="HUM">Humedad relativa</option>
+                <option value="PRES">Presión atmosférica</option>
+                <option value="GAS">Resistencia de gas</option>
+                <option value="ALT">Altitud aproximada</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-4 text-md-end">
+              <button id="btn-limpiar-filtros" type="button" class="btn btn-outline-secondary btn-sm">Limpiar filtros</button>
+            </div>
+          </div>
+        </div>
 
         <!-- Gráficos (carrusel) + media semanal -->
         <div class="row g-3 mt-2 align-items-start">
@@ -200,11 +231,78 @@
                 <th>PARÁMETRO</th>
                 <th>UNIDAD</th>
                 <th>ORIGEN PREVISTO</th>
-                <th>MEDICIÓN</th>
+                <th>CALIDAD</th>
+                <th>MEDICIÓN / ANTIGÜEDAD</th>
               </tr>
             </thead>
             <tbody id="filas-parametros">
-              <tr><td colspan="4" class="text-center text-secondary py-4">Cargando parámetros...</td></tr>
+              <tr><td colspan="5" class="text-center text-secondary py-4">Cargando parámetros...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SECCIÓN: Estado del modelo ML, referencias y análisis automático (RF-10) -->
+      <section id="seccion-ml" class="panel-box p-3 p-md-4 mb-4" tabindex="-1" aria-labelledby="titulo-ml">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+          <h2 id="titulo-ml" class="h5 fw-bold mb-0 titulo-scca"><i class="bi bi-cpu me-1"></i> Modelos ML, referencias y análisis automático</h2>
+          <span class="badge bg-secondary" id="badge-estado-ml">Consultando...</span>
+        </div>
+        <p class="small text-secondary mb-3">Estado del modelo activo por sensor y variable, fuentes de referencia registradas y últimos resultados de análisis automático. Sin modelo activo o sin datos no se muestra cero.</p>
+
+        <h3 class="h6 fw-bold titulo-scca mt-3">Modelos activos</h3>
+        <div class="table-responsive mb-3">
+          <table class="table table-scca table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>SENSOR</th>
+                <th>VARIABLE</th>
+                <th>PROPÓSITO</th>
+                <th>ALGORITMO</th>
+                <th>VERSIÓN</th>
+                <th>ESTADO</th>
+              </tr>
+            </thead>
+            <tbody id="filas-modelos-ml">
+              <tr><td colspan="6" class="text-center text-secondary py-3">Cargando modelos...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="h6 fw-bold titulo-scca mt-3">Fuentes de referencia</h3>
+        <div class="table-responsive mb-3">
+          <table class="table table-scca table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>FUENTE</th>
+                <th>SITIO</th>
+                <th>CALIBRACIÓN / REFERENCIA</th>
+                <th>LECTURAS</th>
+                <th>ÚLTIMA LECTURA</th>
+              </tr>
+            </thead>
+            <tbody id="filas-referencias-ml">
+              <tr><td colspan="5" class="text-center text-secondary py-3">Cargando referencias...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="h6 fw-bold titulo-scca mt-3">Últimos resultados de análisis automático</h3>
+        <div class="table-responsive">
+          <table class="table table-scca table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>SENSOR / SITIO</th>
+                <th>VARIABLE</th>
+                <th>ORIGINAL</th>
+                <th>ANALIZADO (ML)</th>
+                <th>CALIDAD / ESTADO</th>
+                <th>VERSIÓN MODELO</th>
+                <th>HORA (BOLIVIA)</th>
+              </tr>
+            </thead>
+            <tbody id="filas-resultados-ml">
+              <tr><td colspan="7" class="text-center text-secondary py-3">Cargando resultados...</td></tr>
             </tbody>
           </table>
         </div>
@@ -215,6 +313,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
+  <script src="js/sesion-inactividad.js"></script>
   <script src="js/eventos-lectura.js"></script>
   <script src="js/graficos-monitoreo.js"></script>
   <script src="js/visualizador.js"></script>

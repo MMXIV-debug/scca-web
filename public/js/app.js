@@ -20,6 +20,14 @@ document.addEventListener('DOMContentLoaded', () => {
     alertBox.textContent = '';
   };
 
+  try {
+    const motivoSalida = sessionStorage.getItem('scca_motivo_salida');
+    if (motivoSalida) {
+      sessionStorage.removeItem('scca_motivo_salida');
+      showMessage(motivoSalida, false);
+    }
+  } catch { /* Ignorar si sessionStorage no está disponible. */ }
+
   const setButtonLoading = (btn, isLoading, defaultText) => {
     if (!btn) return;
     if (isLoading) {

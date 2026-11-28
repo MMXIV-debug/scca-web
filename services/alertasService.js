@@ -24,6 +24,7 @@ function crearAlertasService(pool) {
         now() AS ahora
         FROM sensor s JOIN nodo n ON n.id=s.nodo_id ORDER BY s.id`);
       let abiertas = 0, resueltas = 0;
+      const estadoNodos = new Map();
       for (const s of sensores.rows) {
         const intervalo=politica?(politica.configuracion.intervalos_sensor?.[s.id]||(s.origen==='simulado'?900:s.intervalo_muestreo_s)):0;
         const umbralSensor=politica?Math.max(umbral,intervalo*(politica.configuracion.factor_sin_datos||2)):umbral;
@@ -31,6 +32,12 @@ function crearAlertasService(pool) {
         const previas = await c.query("SELECT id FROM alerta WHERE tipo='tecnica' AND nodo_id=$1 AND regla=$2 AND estado IN ('abierta','atendida') FOR UPDATE", [s.nodo_id, regla]);
         const supervisar = s.activo && !['inactivo', 'mantenimiento'].includes(s.estado);
         const segundos = (s.ahora - s.ultima_recepcion) / 1000;
+        if (supervisar) {
+          const info = estadoNodos.get(s.nodo_id) || { estado: s.estado, supervisados: 0, sinDatos: 0 };
+          info.supervisados++;
+          if (segundos > umbralSensor) info.sinDatos++;
+          estadoNodos.set(s.nodo_id, info);
+        }
         if (supervisar && segundos > umbralSensor && !previas.rowCount) {
           const nueva = await c.query(`INSERT INTO alerta(tipo,nodo_id,regla,calidad,periodo_ini,estado,observacion)
             VALUES('tecnica',$1,$2,'sin_datos',$3,'abierta',$4) RETURNING id::text`,
@@ -46,7 +53,17 @@ function crearAlertasService(pool) {
           }
         }
       }
-      await c.query('COMMIT'); return { abiertas, resueltas, sensores_comprobados: sensores.rowCount, umbral_s: umbral };
+      let nodosSinDatos = 0, nodosRecuperados = 0;
+      for (const [nodoId, info] of estadoNodos.entries()) {
+        if (info.supervisados > 0 && info.sinDatos === info.supervisados && info.estado === 'activo') {
+          await c.query("UPDATE nodo SET estado='sin_datos' WHERE id=$1 AND estado='activo'", [nodoId]);
+          nodosSinDatos++;
+        } else if (info.sinDatos < info.supervisados && info.estado === 'sin_datos') {
+          await c.query("UPDATE nodo SET estado='activo' WHERE id=$1 AND estado='sin_datos'", [nodoId]);
+          nodosRecuperados++;
+        }
+      }
+      await c.query('COMMIT'); return { abiertas, resueltas, nodos_sin_datos: nodosSinDatos, nodos_recuperados: nodosRecuperados, sensores_comprobados: sensores.rowCount, umbral_s: umbral };
     } catch (e) { await c.query('ROLLBACK'); throw e; }
     finally { c.release(); }
   }

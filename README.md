@@ -39,6 +39,19 @@ También se puede iniciar desde PowerShell, ubicado en la carpeta del proyecto:
 & '.\Iniciar SCCA.cmd'
 ```
 
+### En Linux
+
+Para iniciar con doble clic (equivalente a `Iniciar SCCA.cmd`), hacer clic derecho en **`Iniciar SCCA.desktop`** → **Permitir lanzar** (o **Propiedades → Permisos → Permitir ejecutar como programa**) la primera vez, y luego hacer doble clic en **`Iniciar SCCA.desktop`**.
+
+También se puede iniciar desde la terminal, ubicado en la carpeta del proyecto:
+
+```bash
+chmod +x instalar.sh
+./instalar.sh
+```
+
+El script `instalar.sh` replica los mismos pasos que `instalar.ps1` (instala o verifica Node.js, Python 3.11+ y .NET SDK 10, prepara `node_modules`, `.venv` y `.env`, e inicia los servicios con `node iniciar.js`). También admite `--solo-instalar` y cualquier opción de `iniciar.js` (por ejemplo, `./instalar.sh --sin-navegador`).
+
 ## Cómo funciona Iniciar SCCA.cmd
 
 `Iniciar SCCA.cmd` se ubica automáticamente en la carpeta del proyecto y ejecuta `instalar.ps1`. Este script:

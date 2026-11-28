@@ -2,8 +2,8 @@ const { vigente } = require('./politicasService');
 const fusion = require('./fusionSensoresService');
 function filtros(q) {
   const result = {};
-  for (const k of ['sensorId', 'nodoId']) {
-    if (q[k] != null) {
+  for (const k of ['sensorId', 'nodoId', 'sitioId']) {
+    if (q[k] != null && q[k] !== '') {
       const n = Number(q[k]);
       if (!Number.isSafeInteger(n) || n <= 0)
         throw Object.assign(Error('Filtro de fuente inválido.'), { status: 400 });
@@ -26,7 +26,7 @@ async function horas(pool, cantidad, q = {}, incluirHoraActual = false) {
  SELECT 'ALT','m' WHERE upper(trim(s.modelo))='BME680' AND s.origen='real' AND v.codigo='PRES') serie
  LEFT JOIN LATERAL (SELECT e.estado,e.es_anomalia,e.modelo_version,e.nodo_id,e.perfil
  FROM evaluacion_muestra e WHERE e.sensor_id=s.id ORDER BY e.medido_en DESC,e.id_muestra DESC LIMIT 1) reciente ON true
- WHERE s.activo AND ($4::int IS NULL OR s.id=$4) AND ($5::int IS NULL OR n.id=$5)),
+ WHERE s.activo AND ($4::int IS NULL OR s.id=$4) AND ($5::int IS NULL OR n.id=$5) AND ($7::int IS NULL OR n.sitio_id=$7)),
  slots AS (SELECT f.sensor_id,f.codigo,date_bin(make_interval(secs=>f.intervalo),l.medido_en,TIMESTAMPTZ '1970-01-01 00:00:00+00') AS slot,AVG(CASE WHEN f.codigo='ALT' THEN (alt.evidencia->>'altitudAproximadaM')::numeric ELSE l.valor END) AS valor,MAX(l.medido_en) AS ultima_fecha
  FROM fuentes f JOIN lectura_original l ON l.sensor_id=f.sensor_id AND l.variable_id=f.variable_id
  LEFT JOIN evaluacion_muestra alt ON f.codigo='ALT' AND alt.sensor_id=l.sensor_id AND alt.id_muestra=l.id_muestra
@@ -52,6 +52,7 @@ async function horas(pool, cantidad, q = {}, incluirHoraActual = false) {
       f.sensorId || null,
       f.nodoId || null,
       incluirHoraActual,
+      f.sitioId || null,
     ],
   );
   return rows;

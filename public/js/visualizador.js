@@ -7,10 +7,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  document.getElementById('btn-salir').addEventListener('click', () => {
+  const salir = () => {
+    const t = localStorage.getItem('token');
+    if (t) fetch('/api/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + t }, keepalive: true }).catch(() => {});
     localStorage.removeItem('token');
     window.location.href = '/';
-  });
+  };
+
+  document.getElementById('btn-salir').addEventListener('click', salir);
+  if (typeof window.iniciarControlInactividad === 'function') {
+    window.iniciarControlInactividad(() => {
+      localStorage.removeItem('token');
+      window.location.href = '/';
+    });
+  }
+
+  let filtroSitio = '';
+  let filtroVariable = '';
+  const selSitio = document.getElementById('filtro-sitio');
+  const selVariable = document.getElementById('filtro-variable');
+  const btnLimpiarFiltros = document.getElementById('btn-limpiar-filtros');
+
+  function formatearAntiguedad(iso) {
+    if (!iso) return 'Sin datos';
+    const seg = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+    if (seg < 60) return `hace ${seg} s`;
+    const min = Math.floor(seg / 60);
+    if (min < 60) return `hace ${min} min`;
+    const hrs = Math.floor(min / 60);
+    if (hrs < 48) return `hace ${hrs} h`;
+    return `hace ${Math.floor(hrs / 24)} d`;
+  }
 
   function configurarNavegacion() {
     const contenido = document.querySelector('.dashboard-content');
@@ -20,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!destino || !contenido.contains(destino)) return;
       enlaces.forEach(enlace => {
         const destinoEnlace = enlace.getAttribute('href');
-        const activo = destinoEnlace === hash || (destinoEnlace === '#seccion-resumen' && ['#seccion-sitios', '#seccion-parametros'].includes(hash));
+        const activo = destinoEnlace === hash || (destinoEnlace === '#seccion-resumen' && ['#seccion-sitios', '#seccion-parametros', '#seccion-ml'].includes(hash));
         enlace.classList.toggle('active', activo);
         if (activo) enlace.setAttribute('aria-current', 'location');
         else enlace.removeAttribute('aria-current');
@@ -106,13 +133,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       datos.forEach(d => {
+        const badgeEstado = d.estado === 'activo'
+          ? 'bg-success-subtle text-success'
+          : d.estado === 'sin_datos'
+            ? 'bg-danger-subtle text-danger'
+            : 'bg-warning-subtle text-warning-emphasis';
         tb.innerHTML += `
           <tr>
             <td class="fw-bold">${esc(d.sitio)}</td>
             <td>Lat: ${d.latitud}, Lon: ${d.longitud}</td>
             <td>${esc(d.nodo || '—')}</td>
             <td>${d.origen === 'simulado' ? 'Simulado' : 'Real'}</td>
-            <td><span class="badge bg-success-subtle text-success">${esc(d.estado)}</span></td>
+            <td><span class="badge ${badgeEstado}">${esc(d.estado)}</span></td>
           </tr>
         `;
       });
@@ -129,14 +161,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       if(!tb) return;
 
       tb.innerHTML = '';
-      datos.forEach(d => {
+      const filtrados = datos.filter(d =>
+        (!filtroSitio || String(d.sitio_id || '') === filtroSitio) &&
+        (!filtroVariable || d.codigo === filtroVariable)
+      );
+      if (!filtrados.length) {
+        tb.innerHTML = '<tr><td colspan="5" class="text-center text-secondary py-3">Sin datos para los filtros seleccionados.</td></tr>';
+        return;
+      }
+      filtrados.forEach(d => {
         const valor = d.ultima_medicion != null ? parseFloat(d.ultima_medicion).toFixed(2) : 'Sin datos';
+        const calidad = d.ultima_medicion != null ? (d.calidad || 'valida') : 'sin_datos';
+        const badgeCalidad = calidad === 'valida' ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary';
+        const fechaTxt = d.ultima_fecha ? `${new Date(d.ultima_fecha).toLocaleString("es-BO", { timeZone: "America/La_Paz" })} · ${formatearAntiguedad(d.ultima_fecha)}` : 'Sin fecha';
         tb.innerHTML += `
           <tr>
             <td class="fw-bold">${esc(d.parametro)}</td>
             <td>${esc(d.unidad)}</td>
             <td>${d.fusion ? esc(describirFusion(d)) : d.origen === 'simulado' ? 'Simulado' : origenFisico(d)}</td>
-            <td class="${d.ultima_medicion != null ? 'text-success fw-bold' : 'text-muted'}">${valor}<small class="d-block text-secondary">${d.ultima_fecha ? new Date(d.ultima_fecha).toLocaleString("es-BO", { timeZone: "America/La_Paz" }) : ""}</small></td>
+            <td><span class="badge ${badgeCalidad}">${esc(calidad)}</span></td>
+            <td class="${d.ultima_medicion != null ? 'text-success fw-bold' : 'text-muted'}">${valor}<small class="d-block text-secondary">${esc(fechaTxt)}</small></td>
           </tr>
         `;
       });
@@ -146,7 +190,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ---------- Gráficos (Chart.js) y media semanal ----------
   let horasGrafico = 168;
   const panelGraficos = crearGraficosMonitoreo(H);
-  const cargarGraficos = () => panelGraficos.cargar(horasGrafico);
+  const cargarGraficos = () => panelGraficos.cargar(horasGrafico, filtroSitio ? { sitioId: filtroSitio } : {});
   const formatoHora = panelGraficos.formatoHora;
 
   const FILAS_SEMANAL = [
@@ -164,12 +208,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function cargarSemanal() {
     try {
-      const r = await fetch('/api/visualizador/semanal', { headers: H });
+      const qs = filtroSitio ? `?sitioId=${encodeURIComponent(filtroSitio)}` : '';
+      const r = await fetch(`/api/visualizador/semanal${qs}`, { headers: H });
       if (!r.ok) return;
       const datos = await r.json();
       const tb = document.getElementById('filas-semanal');
       if (!tb) return;
-      tb.innerHTML = FILAS_SEMANAL.flatMap(f => {
+      const filasVisibles = filtroVariable ? FILAS_SEMANAL.filter(f => f.codigo === filtroVariable) : FILAS_SEMANAL;
+      tb.innerHTML = filasVisibles.flatMap(f => {
         const fuentes=datos.filter(d=>d.codigo===f.codigo);
         if (!fuentes.length) return [`<tr><td class="fw-bold">${f.nombre}</td><td class="text-end text-muted" colspan="2">${f.codigo === 'VOC' ? 'Próximamente' : 'Sin cobertura suficiente'}</td></tr>`];
         return fuentes.map(d=>`<tr>
@@ -271,6 +317,99 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function cargarAlertas(){try{const r=await fetch('/api/visualizador/alertas',{headers:H});if(!r.ok)return;const datos=await r.json();let box=document.getElementById('avisos-alertas');if(!box){box=document.createElement('div');box.id='avisos-alertas';box.className='alert alert-warning';document.getElementById('seccion-resumen')?.prepend(box);}box.replaceChildren();box.hidden=!datos.items.length;for(const a of datos.items){const p=document.createElement('p');p.className='mb-1';p.textContent=`${a.tipo==='tecnica'?'Recepción de datos':'Umbral configurado'} · nodo ${a.nodo_id}: ${a.observacion}`;box.append(p);}}catch{}}
 
+  async function cargarModelosYReferencias() {
+    try {
+      const r = await fetch('/api/visualizador/modelos', { headers: H });
+      if (!r.ok) return;
+      const d = await r.json();
+
+      if (selSitio && Array.isArray(d.sitios)) {
+        const previo = selSitio.value;
+        selSitio.replaceChildren(new Option('Todos los sitios', ''), ...d.sitios.map(s => new Option(s.nombre, String(s.id))));
+        if (d.sitios.some(s => String(s.id) === previo)) selSitio.value = previo;
+      }
+
+      const badgeMl = document.getElementById('badge-estado-ml');
+      if (badgeMl) {
+        const okMl = d.estado_ml === 'disponible';
+        badgeMl.className = `badge ${okMl ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis'}`;
+        badgeMl.textContent = okMl ? `Servicio ML activo · ${(d.modelos || []).length} modelos` : 'Servicio ML sin conexión';
+      }
+
+      const tbMod = document.getElementById('filas-modelos-ml');
+      if (tbMod) {
+        const mods = (d.modelos || []).filter(m => !filtroVariable || m.variable === filtroVariable);
+        tbMod.innerHTML = mods.length
+          ? mods.map(m => `<tr>
+              <td>Sensor ${esc(m.sensor?.sensor_id ?? '—')}</td>
+              <td class="fw-bold">${esc(m.variable)}</td>
+              <td>${esc(m.proposito)}${m.horizonte_h ? ` (${esc(m.horizonte_h)} h)` : ''}</td>
+              <td>${esc(m.algoritmo || '—')}</td>
+              <td><code>${esc(String(m.version || 'Sin versión').slice(0, 12))}</code></td>
+              <td><span class="badge bg-success-subtle text-success">${esc(m.estado || 'activo')}</span></td>
+            </tr>`).join('')
+          : '<tr><td colspan="6" class="text-center text-secondary py-3">Sin modelos activos para esta selección (se muestran datos originales como no corregidos).</td></tr>';
+      }
+
+      const tbRef = document.getElementById('filas-referencias-ml');
+      if (tbRef) {
+        const refs = (d.referencias || []).filter(ref => !filtroSitio || String(ref.sitio_id || '') === filtroSitio);
+        tbRef.innerHTML = refs.length
+          ? refs.map(ref => `<tr>
+              <td class="fw-bold">${esc(ref.nombre)}</td>
+              <td>${esc(ref.sitio_nombre || 'General')}</td>
+              <td>${esc(ref.calibracion_ref || 'Sin detalle')}</td>
+              <td>${ref.total_lecturas != null ? esc(ref.total_lecturas) : 'Sin datos'}</td>
+              <td>${ref.ultima_lectura ? `${esc(formatoHora(ref.ultima_lectura))} · ${esc(formatearAntiguedad(ref.ultima_lectura))}` : 'Sin datos'}</td>
+            </tr>`).join('')
+          : '<tr><td colspan="5" class="text-center text-secondary py-3">Sin fuentes de referencia registradas para esta selección.</td></tr>';
+      }
+
+      const tbRes = document.getElementById('filas-resultados-ml');
+      if (tbRes) {
+        const res = (d.resultados || []).filter(item => {
+          const rObj = item.resultado || {};
+          return (!filtroSitio || String(item.sitio_id || '') === filtroSitio) &&
+            (!filtroVariable || rObj.variable === filtroVariable);
+        });
+        tbRes.innerHTML = res.length
+          ? res.map(item => {
+              const rObj = item.resultado || {};
+              const unidad = rObj.unidad || '';
+              const orig = rObj.valor_original != null ? `${Number(rObj.valor_original).toFixed(2)} ${unidad}` : 'Sin datos';
+              const valMl = rObj.valor != null ? `${Number(rObj.valor).toFixed(2)} ${unidad}` : 'Sin datos';
+              const estado = rObj.estado_correccion === 'no_corregido' ? 'no_corregido' : (rObj.estado || 'evaluado');
+              return `<tr>
+                <td>Sensor ${esc(item.sensor_id)}${item.sitio_nombre ? ` · ${esc(item.sitio_nombre)}` : ''}</td>
+                <td class="fw-bold">${esc(rObj.variable || '—')}</td>
+                <td>${esc(orig)}</td>
+                <td class="${rObj.valor != null ? 'fw-bold text-primary' : 'text-muted'}">${esc(valMl)}</td>
+                <td><span class="badge bg-info-subtle text-info-emphasis">${esc(estado)}</span></td>
+                <td><code>${esc(String(item.version || 'Sin modelo').slice(0, 12))}</code></td>
+                <td class="text-nowrap">${item.periodo_inicio ? `${esc(formatoHora(item.periodo_inicio))} <small class="text-secondary">(${esc(formatearAntiguedad(item.periodo_inicio))})</small>` : 'Sin datos'}</td>
+              </tr>`;
+            }).join('')
+          : '<tr><td colspan="7" class="text-center text-secondary py-3">Sin resultados de análisis automático para esta selección.</td></tr>';
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  function aplicarFiltros() {
+    filtroSitio = selSitio?.value || '';
+    filtroVariable = selVariable?.value || '';
+    cargarParametros();
+    cargarGraficos();
+    cargarSemanal();
+    cargarModelosYReferencias();
+  }
+  selSitio?.addEventListener('change', aplicarFiltros);
+  selVariable?.addEventListener('change', aplicarFiltros);
+  btnLimpiarFiltros?.addEventListener('click', () => {
+    if (selSitio) selSitio.value = '';
+    if (selVariable) selVariable.value = '';
+    aplicarFiltros();
+  });
+
   try {
     const r = await fetch('/api/me', {
       headers: { 'Authorization': 'Bearer ' + token }
@@ -306,6 +445,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     cargarSemanal();
     cargarAlertas();
     cargarClima();
+    cargarModelosYReferencias();
     let actualizando = false, refrescoPendiente = false;
 
     async function actualizarPanel() {
@@ -316,7 +456,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         do {
           refrescoPendiente = false;
-          await Promise.all([cargarResumen(), cargarSitios(), cargarParametros(), cargarGraficos(), cargarSemanal(), cargarAlertas(), cargarClima()]);
+          await Promise.all([cargarResumen(), cargarSitios(), cargarParametros(), cargarGraficos(), cargarSemanal(), cargarAlertas(), cargarClima(), cargarModelosYReferencias()]);
         } while (refrescoPendiente && !document.hidden);
       } finally {
         actualizando = false;

@@ -2,6 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('node:crypto');
+
+const INACTIVIDAD_MAX_MS = Math.max(60000, Number(process.env.SESION_INACTIVIDAD_MS || 15 * 60 * 1000));
+const ultimaActividadSesion = new Map();
 
 // Dependencias de Swagger
 const swaggerJsDoc = require('swagger-jsdoc');
@@ -61,6 +65,20 @@ async function auth(req, res, next) {
   } catch {
     return res.status(401).json({ error: 'Sesión inválida' });
   }
+  const claveSesion = sesion.sid || token;
+  const ahora = Date.now();
+  const ultima = ultimaActividadSesion.get(claveSesion);
+  if (ultima != null && ahora - ultima > INACTIVIDAD_MAX_MS) {
+    ultimaActividadSesion.delete(claveSesion);
+    return res.status(401).json({
+      error: 'Sesión cerrada por 15 minutos de inactividad. Inicia sesión nuevamente.',
+      codigo: 'INACTIVIDAD',
+    });
+  }
+  if (req.headers['x-scca-bg'] !== '1') {
+    ultimaActividadSesion.set(claveSesion, ahora);
+  }
+  req.sesionId = claveSesion;
   try {
     // Los permisos vigentes prevalecen sobre el rol guardado en el token.
     const { rows } = await pool.query(
@@ -96,6 +114,46 @@ const eventosLectura = require('./services/eventosLectura');
 eventosLectura.iniciarObservadores(pool);
 app.get('/api/visualizador/eventos', auth, (req, res) => eventosLectura.suscribirPanel(req, res));
 app.get('/api/visualizador/alertas',auth,async(req,res)=>{try{res.json({items:(await pool.query("SELECT id::text,tipo,nodo_id,regla,valor,calidad,periodo_ini,estado,observacion,evidencia FROM alerta WHERE estado IN ('abierta','atendida') ORDER BY generada_en DESC LIMIT 100")).rows});}catch{res.status(503).json({error:'Alertas no disponibles.'});}});
+app.get('/api/visualizador/modelos', auth, async (req, res) => {
+  try {
+    let modelos = [];
+    let estadoMl = 'disponible';
+    try {
+      const reg = await require('./services/panelMlService').ml('api/v2/modelos/registro');
+      modelos = reg.activos || (reg.items || []).filter((m) => m.activo);
+    } catch {
+      estadoMl = 'no_disponible';
+    }
+    const [referencias, resultados, sitios] = await Promise.all([
+      pool.query(
+        `SELECT r.id, r.nombre, r.sitio_id, si.nombre AS sitio_nombre, r.calibracion_ref,
+                (SELECT count(*)::int FROM referencia_lectura rl WHERE rl.fuente_id = r.id) AS total_lecturas,
+                (SELECT max(rl.medido_en) FROM referencia_lectura rl WHERE rl.fuente_id = r.id) AS ultima_lectura
+         FROM referencia_fuente r LEFT JOIN sitio si ON si.id = r.sitio_id ORDER BY r.id`,
+      ),
+      pool.query(
+        `SELECT r.id::text, r.periodo_inicio, r.periodo_fin, r.resultado, v.version, v.proposito,
+                v.horizonte_h, v.perfil, v.sensor_id, n.sitio_id, si.nombre AS sitio_nombre
+         FROM ml_demo_resultado r
+         JOIN ml_demo_version v ON v.version = r.version
+         LEFT JOIN sensor s ON s.id = v.sensor_id
+         LEFT JOIN nodo n ON n.id = s.nodo_id
+         LEFT JOIN sitio si ON si.id = n.sitio_id
+         ORDER BY r.id DESC LIMIT 25`,
+      ).catch(() => ({ rows: [] })),
+      pool.query('SELECT id, codigo, nombre FROM sitio ORDER BY id'),
+    ]);
+    res.json({
+      estado_ml: estadoMl,
+      modelos,
+      referencias: referencias.rows,
+      resultados: resultados.rows,
+      sitios: sitios.rows,
+    });
+  } catch {
+    res.status(503).json({ error: 'No se pudo consultar el estado de modelos y referencias.' });
+  }
+});
 function calcularAQI_EPA(pm25) {
   // EPA 2024, PM2.5 24 h: https://www.epa.gov/system/files/documents/2024-02/pm-naaqs-air-quality-index-fact-sheet.pdf
   if(!Number.isFinite(pm25)||pm25<0)return {score:'-',label:'Sin datos válidos',color:'secondary'};
@@ -203,11 +261,18 @@ app.post('/api/login', async (req, res) => {
     if (u.estado === 'inactivo' || !u.activo) return res.status(403).json({ error: 'Cuenta inhabilitada' });
     if (u.estado === 'rechazado') return res.status(403).json({ error: 'Solicitud rechazada' });
 
-    const token = jwt.sign({ id: u.id, rol: u.rol, nombre: u.nombre_completo }, process.env.JWT_SECRET, { expiresIn: '8h' });
-    res.json({ token, rol: u.rol, nombre: u.nombre_completo });
+    const sid = crypto.randomUUID();
+    const token = jwt.sign({ id: u.id, rol: u.rol, nombre: u.nombre_completo, sid }, process.env.JWT_SECRET, { expiresIn: '8h' });
+    ultimaActividadSesion.set(sid, Date.now());
+    res.json({ token, rol: u.rol, nombre: u.nombre_completo, inactividad_max_ms: INACTIVIDAD_MAX_MS });
   } catch (e) {
     res.status(500).json({ error: 'Error al iniciar sesión' });
   }
+});
+
+app.post('/api/logout', auth, (req, res) => {
+  if (req.sesionId) ultimaActividadSesion.delete(req.sesionId);
+  res.json({ ok: true });
 });
 
 app.get('/api/me', auth, (req, res) => res.json(req.user));
@@ -348,11 +413,12 @@ app.get('/api/admin/sitios-fuentes', auth, async (req, res) => {
 async function cargarParametros(req, res, combinar = false) {
   try {
     const { rows } = await pool.query(`SELECT v.codigo,v.nombre AS parametro,u.simbolo AS unidad,
-      s.id AS sensor_id,s.nodo_id,s.origen,s.modelo,l.valor AS ultima_medicion,l.medido_en AS ultima_fecha,
+      s.id AS sensor_id,s.nodo_id,n.sitio_id,si.nombre AS sitio_nombre,s.origen,s.modelo,l.valor AS ultima_medicion,l.medido_en AS ultima_fecha,l.calidad,
       e.evidencia->>'altitudAproximadaM' AS altitud
-      FROM sensor s JOIN sensor_variable sv ON sv.sensor_id=s.id JOIN variable v ON sv.variable_id=v.id
+      FROM sensor s JOIN nodo n ON n.id=s.nodo_id LEFT JOIN sitio si ON si.id=n.sitio_id
+      JOIN sensor_variable sv ON sv.sensor_id=s.id JOIN variable v ON sv.variable_id=v.id
       JOIN unidad u ON u.id=v.unidad_id
-      LEFT JOIN LATERAL (SELECT valor,medido_en,id_muestra FROM lectura_original
+      LEFT JOIN LATERAL (SELECT valor,medido_en,id_muestra,calidad FROM lectura_original
         WHERE sensor_id=s.id AND variable_id=v.id AND calidad='valida' ORDER BY medido_en DESC,id DESC LIMIT 1) l ON true
       LEFT JOIN evaluacion_muestra e ON v.codigo='PRES' AND e.sensor_id=s.id AND e.id_muestra=l.id_muestra
       WHERE s.activo ORDER BY s.id,v.id`);
